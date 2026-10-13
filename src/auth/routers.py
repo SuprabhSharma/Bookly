@@ -1,6 +1,6 @@
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from fastapi.responses import JSONResponse
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -17,6 +17,8 @@ from .dependencies import (
 )
 from .schemas import (
     EmailModel,
+    PasswordResetConfirmModel,
+    PasswordResetRequestModel,
     UserBooksModel,
     UserCreateModel,
     UserLoginModel,
@@ -26,6 +28,7 @@ from .utils import (
     create_access_tokens,
     create_url_safe_token,
     decode_url_safe_token,
+    generate_passwd_hash,
     normalize_email,
     verify_password,
 )
@@ -74,6 +77,7 @@ async def send_email(emails:EmailModel):
 )
 async def create_user_Account(
     user_data: UserCreateModel,
+    bg_tasks:BackgroundTasks,
     session: AsyncSession = session_dependency,
 ):
     """
@@ -99,7 +103,7 @@ async def create_user_Account(
     
     html_message = f"""
     <h1>Verify your Email</h1>
-    <p>Please click <a href="{link}">here</a> to verify your email.</p>
+    <p>Please click here <a href="{link}"></a> to verify your email.</p>
     
     """
     
@@ -109,7 +113,7 @@ async def create_user_Account(
             body=html_message
         )
         
-    await mail.send_message(message)
+    bg_tasks.add_task(mail.send_message, message)
     
 
     return {
@@ -213,10 +217,86 @@ async def revoke_token(
 
     await token_blocklist_service.revoke_token(
         jti,
-        datetime.fromtimestamp(token_details["exp"], tz=timezone.utc),
+        datetime.fromtimestamp(token_details["exp"], tz=datetime.UTC),
         session,
     )
 
     return JSONResponse(
         content={"message": "Logged out Successfully"}, status_code=status.HTTP_200_OK
+    )
+    
+    
+"""
+Provide the email -> passwor reset request
+send password link  -> reset link
+reset the password  -> password reset confirm
+"""
+
+    
+    
+    
+@auth_router.post("/password-reset-request")
+async def password_reset_request(email_data: PasswordResetRequestModel):
+    email = email_data.email
+
+    token = create_url_safe_token({"email": email})
+
+    link = f"http://{Config.DOMAIN}/api/v1/auth/password-reset-confirm/{token}"
+
+    html_message = f"""
+    <h1>Reset Your Password</h1>
+    <p>Please click this <a href="{link}">link</a> to Reset Your Password</p>
+    """
+    subject = "Reset Your Password"
+
+    message = create_message(
+        recipients=[email],
+        subject=subject,
+        body=html_message,
+    )
+    await mail.send_message(message)
+
+    return JSONResponse(
+        content={
+            "message": "Please check your email for instructions to reset your password",
+        },
+        status_code=status.HTTP_200_OK,
+    )
+
+
+@auth_router.post("/password-reset-confirm/{token}")
+async def reset_account_password(
+    token: str,
+    passwords: PasswordResetConfirmModel,
+    session: AsyncSession = session_dependency,
+):
+    new_password = passwords.new_password
+    confirm_password = passwords.confirm_new_password
+
+    if new_password != confirm_password:
+        raise HTTPException(
+            detail="Passwords do not match", status_code=status.HTTP_400_BAD_REQUEST
+        )
+
+    token_data = decode_url_safe_token(token)
+
+    user_email = token_data.get("email")
+
+    if user_email:
+        user = await user_service.get_user_by_email(user_email, session)
+
+        if not user:
+            raise UserNotFound()
+
+        passwd_hash = generate_passwd_hash(new_password)
+        await user_service.update_user(user, {"password_hash": passwd_hash}, session)
+
+        return JSONResponse(
+            content={"message": "Password reset Successfully"},
+            status_code=status.HTTP_200_OK,
+        )
+
+    return JSONResponse(
+        content={"message": "Error occured during password reset."},
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
     )

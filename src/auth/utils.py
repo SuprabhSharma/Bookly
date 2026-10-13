@@ -20,10 +20,11 @@ def normalize_email(email: str) -> str:
     return email.strip().lower()
 
 
-def generate_password_hash(password: str) -> str:
+def generate_passwd_hash(password: str) -> str:
     hash = passwd_context.hash(password)
 
     return hash
+
 
 
 def verify_password(password: str, hash: str) -> bool:

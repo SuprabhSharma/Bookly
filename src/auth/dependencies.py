@@ -6,6 +6,7 @@ from src.db.main import get_session
 from src.db.models import User
 from src.errors import (
     AccessTokenRequired,
+    AccountNotVerified,
     InsufficientPermission,
     InvalidToken,
     RefreshTokenRequired,
@@ -92,6 +93,9 @@ class RoleChecker:
         
         
     def __call__(self, current_user : User = Depends(get_current_user)) -> any:
+        
+        if not current_user.is_verfied:
+            raise  AccountNotVerified
         
         if current_user.role in self.allowed_roles:
             return True

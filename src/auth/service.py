@@ -7,7 +7,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from src.db.models import RevokedToken, User
 
 from .schemas import UserCreateModel
-from .utils import generate_password_hash
+from .utils import generate_passwd_hash
 
 
 class UserService:
@@ -34,7 +34,7 @@ class UserService:
 
         new_user = User(**user_data_dict)
 
-        new_user.password_hash = generate_password_hash(user_data.password)
+        new_user.password_hash = generate_passwd_hash(user_data.password)
 
         new_user.role = "user"
         session.add(new_user)
