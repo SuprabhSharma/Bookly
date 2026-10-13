@@ -3,13 +3,14 @@ import uuid
 from datetime import datetime, timedelta, timezone
 
 import jwt
+from itsdangerous import URLSafeTimedSerializer
 from passlib.context import CryptContext
 
 from src.config import Config
 
-passwd_context = CryptContext(
-    schemes=['bcrypt']
-)
+logger = logging.getLogger(__name__)
+
+passwd_context = CryptContext(schemes=["bcrypt"])
 
 ACCESS_TOKEN_EXPIRY = 3600
 
@@ -18,36 +19,38 @@ def normalize_email(email: str) -> str:
     """Return the canonical form used for email lookups and storage."""
     return email.strip().lower()
 
-def generate_password_hash(password : str) -> str:
+
+def generate_password_hash(password: str) -> str:
     hash = passwd_context.hash(password)
-    
-    return hash 
 
-def verify_password(password : str , hash : str ) -> bool:
-    return passwd_context.verify(password , hash)
+    return hash
 
 
-def create_access_tokens(user_data : dict , expiry : timedelta = None , refresh : bool = False):
-    
+def verify_password(password: str, hash: str) -> bool:
+    return passwd_context.verify(password, hash)
+
+
+def create_access_tokens(
+    user_data: dict, expiry: timedelta = None, refresh: bool = False
+):
+
     payload = {}
-    
-    payload['user'] = user_data
-    payload['exp'] = datetime.now(timezone.utc) + (
+
+    payload["user"] = user_data
+    payload["exp"] = datetime.now(timezone.utc) + (
         expiry if expiry is not None else timedelta(seconds=ACCESS_TOKEN_EXPIRY)
     )
-    payload['jti'] = str(uuid.uuid4())
-    payload['refresh'] = refresh
-    
+    payload["jti"] = str(uuid.uuid4())
+    payload["refresh"] = refresh
+
     token = jwt.encode(
-        payload = payload,
-        key = Config.JWT_SECRET,
-        algorithm=Config.JWT_ALGORITHM
+        payload=payload, key=Config.JWT_SECRET, algorithm=Config.JWT_ALGORITHM
     )
-    
+
     return token
 
 
-def decode_token(token : str) -> dict:
+def decode_token(token: str) -> dict:
     try:
         token_data = jwt.decode(
             jwt=token,
@@ -57,8 +60,27 @@ def decode_token(token : str) -> dict:
         return token_data
 
     except (jwt.PyJWTError, TypeError, ValueError) as exc:
-        # A bad token is a client authentication error, not an application
-        # failure. Keep the reason in the server log without a traceback for
-        # expected malformed/expired tokens.
-        logging.warning("Unable to decode access token: %s", exc)
+        logger.warning("Unable to decode access token: %s", exc)
         return None
+
+
+serializer = URLSafeTimedSerializer(
+    secret_key=Config.JWT_SECRET, salt="email-configuration"
+)
+
+
+def create_url_safe_token(data: dict):
+
+    token = serializer.dumps(data)
+
+    return token
+
+
+def decode_url_safe_token(token: str):
+    try:
+        token_data = serializer.loads(token)
+
+        return token_data
+
+    except Exception as e:
+        logging.error(str(e))

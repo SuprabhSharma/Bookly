@@ -44,6 +44,17 @@ class UserService:
 
         return new_user
 
+    async def update_user(
+        self, user: User, update_data: dict[str, object], session: AsyncSession
+    ) -> User:
+        for field, value in update_data.items():
+            setattr(user, field, value)
+
+        await session.commit()
+        await session.refresh(user)
+
+        return user
+
 
 class TokenBlocklistService:
     """Persist revoked JWT IDs in PostgreSQL instead of an external cache."""
