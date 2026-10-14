@@ -3,3 +3,6 @@ env/
 __pycache__
 
 .env
+.venv/
+.uv-cache/
+node_modules/

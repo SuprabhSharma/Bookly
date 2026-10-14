@@ -1,0 +1,70 @@
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI
+from fastapi.responses import JSONResponse
+
+from src.addresses.routes import address_router
+from src.admin.routes import admin_router
+from src.auth.routers import auth_router
+from src.books.routes import book_router
+from src.cart.routes import cart_router
+from src.categories.routes import category_router
+from src.db.main import init_db
+from src.orders.routes import order_router
+from src.products.routes import product_router
+from src.reviews.routes import product_review_router, review_router
+from src.tags.routes import tags_router
+from src.services.routes import service_router
+from src.vendors.routes import vendor_router
+from src.wishlist.routes import wishlist_router
+
+from .errors import register_all_errors
+from .middleware import register_middleware
+
+
+@asynccontextmanager
+async def life_span(app: FastAPI):
+    print("Server is Starting ...")
+    await init_db()
+    yield
+    print("Server is being stopped")
+
+
+version = "v1"
+API_PREFIX = f"/api/{version}"
+
+app = FastAPI(
+    title="Marketplace API",
+    description="Multi-vendor marketplace REST API",
+    version=version,
+    lifespan=life_span,
+    docs_url=f"{API_PREFIX}/docs",
+    redoc_url=f"{API_PREFIX}/redoc",
+    contact={"email": "sharmasuprabh2608@gmail.com"},
+)
+
+register_all_errors(app)
+register_middleware(app)
+
+
+# ── Health check ──────────────────────────────────────────────────────────────
+@app.get("/health", tags=["health"])
+async def health():
+    return JSONResponse({"status": "ok", "version": version})
+
+
+# ── Router mounts under /api/v1 ───────────────────────────────────────────────
+app.include_router(auth_router,     prefix=f"{API_PREFIX}/auth",       tags=["auth"])
+app.include_router(book_router,     prefix=f"{API_PREFIX}/books",      tags=["books"])
+app.include_router(product_review_router, prefix=f"{API_PREFIX}",     tags=["reviews"])
+app.include_router(review_router,   prefix=f"{API_PREFIX}/reviews",    tags=["reviews"])
+app.include_router(tags_router,     prefix=f"{API_PREFIX}/tags",       tags=["tags"])
+app.include_router(service_router,  prefix=f"{API_PREFIX}/services",   tags=["services"])
+app.include_router(category_router, prefix=f"{API_PREFIX}/categories", tags=["categories"])
+app.include_router(product_router,  prefix=f"{API_PREFIX}/products",   tags=["products"])
+app.include_router(vendor_router,   prefix=f"{API_PREFIX}/vendors",    tags=["vendors"])
+app.include_router(cart_router,     prefix=f"{API_PREFIX}/cart",       tags=["cart"])
+app.include_router(wishlist_router, prefix=f"{API_PREFIX}/wishlist",   tags=["wishlist"])
+app.include_router(address_router,  prefix=f"{API_PREFIX}/addresses",  tags=["addresses"])
+app.include_router(order_router,    prefix=f"{API_PREFIX}/orders",     tags=["orders"])
+app.include_router(admin_router,    prefix=f"{API_PREFIX}/admin",      tags=["admin"])

@@ -1,0 +1,12 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root { --brand-50: #eff6ff; --brand-100: #dbeafe; --brand-500: #3b82f6; --brand-600: #2563eb; --brand-700: #1d4ed8; --ink: #0f172a; --muted: #64748b; --surface: #ffffff; --line: #e2e8f0; }
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; min-width: 320px; background: #f8fafc; font-family: Inter, ui-sans-serif, system-ui, sans-serif; color: var(--ink); }
+button, input, select { font: inherit; }
+button, a { -webkit-tap-highlight-color: transparent; }
+::selection { background: var(--brand-100); color: var(--brand-700); }
