@@ -15,6 +15,7 @@ dependencies = [
     "passlib==1.7.4",
     "pydantic-settings",
     "fastapi-mail",
+    "itsdangerous",
     "sqlalchemy[asyncio]",
     "sqlmodel",
     "alembic>=1.20.0",

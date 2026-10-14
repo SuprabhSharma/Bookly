@@ -3,6 +3,7 @@ asyncpg
 bcrypt==4.0.1
 fastapi[standard]>=0.141.1
 fastapi-mail
+itsdangerous
 passlib==1.7.4
 PyJWT
 pydantic-settings
