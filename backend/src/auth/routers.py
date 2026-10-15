@@ -1,6 +1,6 @@
 from datetime import timedelta, timezone, datetime
 
-from fastapi import APIRouter, BackgroundTasks, Body, Depends, status
+from fastapi import APIRouter, BackgroundTasks, Depends, Request, Response, status
 from fastapi.responses import JSONResponse
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -8,6 +8,7 @@ from src.config import Config
 from src.audit import record_audit
 from src.db.main import get_session
 from src.errors import (
+    AccountNotVerified,
     InvalidCredentials,
     InvalidToken,
     UserAlreadyExists,
@@ -19,7 +20,7 @@ from .dependencies import (
     AccessTokenBearer,
     RefreshTokenBearer,
     RoleChecker,
-    get_current_user,
+    get_verified_user,
 )
 from .schemas import (
     EmailModel,
@@ -49,8 +50,20 @@ role_checker = RoleChecker(["admin", "customer", "vendor"])
 session_dependency = Depends(get_session)
 refresh_token_dependency = Depends(RefreshTokenBearer())
 access_token_dependency = Depends(AccessTokenBearer())
-current_user_dependency = Depends(get_current_user)
+current_user_dependency = Depends(get_verified_user)
 role_dependency = Depends(role_checker)
+
+
+def set_refresh_cookie(response: Response, token: str) -> None:
+    response.set_cookie(
+        key=Config.REFRESH_COOKIE_NAME,
+        value=token,
+        max_age=REFRESH_TOKEN_EXPIRY * 24 * 60 * 60,
+        httponly=True,
+        secure=Config.COOKIE_SECURE,
+        samesite=Config.COOKIE_SAMESITE,
+        path=Config.REFRESH_COOKIE_PATH,
+    )
 
 
 @auth_router.post("/send_email")
@@ -156,6 +169,9 @@ async def login_users(
         password_valid = verify_password(password, user.password_hash)
 
         if password_valid:
+            if not user.is_verified:
+                raise AccountNotVerified()
+
             if user.role == "admin":
                 await record_audit(
                     session,
@@ -178,11 +194,10 @@ async def login_users(
                 expiry=timedelta(days=REFRESH_TOKEN_EXPIRY),
             )
 
-            return JSONResponse(
+            response = JSONResponse(
                 content={
                     "message": "Login successful",
                     "access_token": access_token,
-                    "refresh_token": refresh_token,
                     "user": {
                         "email": user.email,
                         "uid": str(user.uid),
@@ -192,6 +207,8 @@ async def login_users(
                     },
                 }
             )
+            set_refresh_cookie(response, refresh_token)
+            return response
 
     raise InvalidCredentials()
 
@@ -211,6 +228,9 @@ async def get_new_access_token(
         if not user:
             raise InvalidToken()
 
+        if not user.is_verified:
+            raise AccountNotVerified()
+
         new_access_token = create_access_tokens(
             user_data={
                 "email": user.email,
@@ -229,10 +249,18 @@ async def get_new_access_token(
             refresh=True,
             expiry=timedelta(days=REFRESH_TOKEN_EXPIRY),
         )
-        return JSONResponse(content={
+        response = JSONResponse(content={
             "access_token": new_access_token,
-            "refresh_token": new_refresh_token,
+            "user": {
+                "email": user.email,
+                "uid": str(user.uid),
+                "role": user.role,
+                "first_name": user.first_name,
+                "last_name": user.last_name,
+            },
         })
+        set_refresh_cookie(response, new_refresh_token)
+        return response
 
     raise InvalidToken()
 
@@ -244,8 +272,8 @@ async def get_current_user_me(user=current_user_dependency, _: bool = role_depen
 
 @auth_router.post("/logout")  # Changed from GET to POST
 async def revoke_token(
+    request: Request,
     token_details: dict = access_token_dependency,
-    refresh_token: str | None = Body(default=None, embed=True),
     session: AsyncSession = session_dependency,
 ):
     jti = token_details["jti"]
@@ -255,6 +283,7 @@ async def revoke_token(
         datetime.fromtimestamp(token_details["exp"], tz=timezone.utc),  # Fixed: timezone.utc
         session,
     )
+    refresh_token = request.cookies.get(Config.REFRESH_COOKIE_NAME) if request else None
     if refresh_token:
         refresh_details = decode_token(refresh_token)
         if refresh_details and refresh_details.get("refresh"):
@@ -264,9 +293,14 @@ async def revoke_token(
                 session,
             )
 
-    return JSONResponse(
+    response = JSONResponse(
         content={"message": "Logged out successfully"}, status_code=status.HTTP_200_OK
     )
+    response.delete_cookie(
+        key=Config.REFRESH_COOKIE_NAME,
+        path=Config.REFRESH_COOKIE_PATH,
+    )
+    return response
 
 
 @auth_router.post("/password-reset-request")

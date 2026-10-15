@@ -4,6 +4,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from src.db.main import get_session
 from src.db.models import User
+from src.config import Config
 from src.errors import (
     AccessTokenRequired,
     AccountNotVerified,
@@ -20,17 +21,22 @@ user_service = UserService()
 token_blocklist_service = TokenBlocklistService()
 
 class TokenBearer(HTTPBearer):
-    def __init__(self, auto_error=True):
+    def __init__(self, auto_error=True, cookie_name: str | None = None, cookie_only: bool = False):
         super().__init__(auto_error=auto_error)
+        self.cookie_name = cookie_name
+        self.cookie_only = cookie_only
 
     async def __call__(
         self,
         request: Request,
         session: AsyncSession = Depends(get_session),
     ) -> dict:
-        creds = await super().__call__(request)
-
-        token = creds.credentials
+        token = request.cookies.get(self.cookie_name) if self.cookie_name else None
+        if not token and self.cookie_only:
+            raise InvalidToken()
+        if not token:
+            creds = await super().__call__(request)
+            token = creds.credentials
 
         token_data = decode_token(token)
 
@@ -67,6 +73,9 @@ class AccessTokenBearer(TokenBearer):
 
 
 class RefreshTokenBearer(TokenBearer):
+    def __init__(self, auto_error=True):
+        super().__init__(auto_error=auto_error, cookie_name=Config.REFRESH_COOKIE_NAME, cookie_only=True)
+
     def verify_token_data(self, token_data: dict) -> None:
             if token_data and not token_data["refresh"]:
                 raise RefreshTokenRequired()
@@ -81,8 +90,24 @@ async def get_current_user(
     user_email = token_details["user"]["email"]
     
     user = await user_service.get_user_by_email(user_email , session)
+
+    # A token can remain structurally valid after its user has been deleted.
+    # Treat that token as invalid instead of allowing a later attribute error.
+    if user is None:
+        raise InvalidToken()
     
     return user
+
+
+async def get_verified_user(
+    current_user: User = Depends(get_current_user),
+) -> User:
+    """Return the authenticated user only when their email is verified."""
+
+    if not current_user.is_verified:
+        raise AccountNotVerified()
+
+    return current_user
 
 
 class RoleChecker:
@@ -92,11 +117,7 @@ class RoleChecker:
         
         
         
-    def __call__(self, current_user : User = Depends(get_current_user)) -> any:
-        
-        if not current_user.is_verified:
-            raise AccountNotVerified()
-        
+    def __call__(self, current_user: User = Depends(get_verified_user)) -> any:
         if current_user.role in self.allowed_roles:
             return True
         

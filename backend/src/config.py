@@ -29,6 +29,10 @@ class Settings(BaseSettings):
     TRUSTED_HOSTS: str = "localhost,127.0.0.1"
     APP_ENV: str = "development"
     ADMIN_BOOTSTRAP_PASSWORD: str | None = None
+    REFRESH_COOKIE_NAME: str = "tavilo_refresh"
+    REFRESH_COOKIE_PATH: str = "/api/v1/auth"
+    COOKIE_SECURE: bool = False
+    COOKIE_SAMESITE: str = "lax"
 
     # Resolve the env file from the backend package, not the process cwd.
     # This keeps uvicorn, Alembic, and Docker consistent when started elsewhere.

@@ -52,9 +52,7 @@ export default function ShopLayout() {
   };
   const signOut = async () => {
     try {
-      await api.post("/auth/logout", {
-        refresh_token: useAuthStore.getState().refreshToken,
-      });
+      await api.post("/auth/logout");
     } catch {
       /* session is cleared locally */
     }

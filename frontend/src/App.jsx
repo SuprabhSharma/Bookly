@@ -1,8 +1,21 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import ShopLayout from "./components/Layout";
 import { Skeleton } from "./components/ui";
 import { useAuthStore } from "./store/authStore";
+import { api } from "./lib/apiClient";
+
+// Remove the legacy client-side refresh token from older releases.
+if (typeof window !== "undefined") {
+  window.localStorage.removeItem("marketplace_refresh_token");
+}
+
+let authBootstrapPromise;
+
+function bootstrapAuth() {
+  authBootstrapPromise ||= api.post("/auth/refresh_token");
+  return authBootstrapPromise;
+}
 
 const Home = lazy(() => import("./pages/Home"));
 const ProductListing = lazy(() => import("./pages/ProductListing"));
@@ -44,7 +57,9 @@ function Loading() {
 }
 function ProtectedRoute({ children }) {
   const token = useAuthStore((state) => state.accessToken);
+  const isReady = useAuthStore((state) => state.isReady);
   const location = useLocation();
+  if (!isReady) return <Loading />;
   return token ? (
     children
   ) : (
@@ -67,6 +82,15 @@ function RoleRoute({ role, children }) {
   return children;
 }
 export default function App() {
+  const setSession = useAuthStore((state) => state.setSession);
+  const setReady = useAuthStore((state) => state.setReady);
+
+  useEffect(() => {
+    bootstrapAuth()
+      .then(({ data }) => setSession({ access_token: data.access_token, user: data.user }))
+      .catch(() => setReady());
+  }, [setReady, setSession]);
+
   return (
     <>
       <Suspense fallback={<Loading />}>

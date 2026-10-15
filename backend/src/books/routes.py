@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, status
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from src.auth.dependencies import AccessTokenBearer, RoleChecker, get_current_user
+from src.auth.dependencies import AccessTokenBearer, RoleChecker, get_verified_user
 from src.db.models import User
 from src.errors import BookNotFound, InsufficientPermission
 
@@ -76,7 +76,7 @@ async def update_book(
     book_uid: str,
     book_update_data: BookUpdateModel,
     session: AsyncSession = session_dependency,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_verified_user),
 ) -> dict:
     book = await book_service.get_book(book_uid, session)
 
@@ -97,7 +97,7 @@ async def update_book(
 async def delete_book(
     book_uid: str,
     session: AsyncSession = session_dependency,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_verified_user),
 ):
     book = await book_service.get_book(book_uid, session)
 

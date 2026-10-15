@@ -1,5 +1,7 @@
-import { forwardRef } from "react";
+import { forwardRef, useState } from "react";
 import {
+  Eye,
+  EyeOff,
   LoaderCircle,
   PackageOpen,
   RefreshCcw,
@@ -37,6 +39,37 @@ export const Input = forwardRef(
   ),
 );
 Input.displayName = "Input";
+export const PasswordInput = forwardRef(
+  ({ label, error, className = "", ...props }, ref) => {
+    const [visible, setVisible] = useState(false);
+
+    return (
+      <label className="block space-y-1.5">
+        <span className="text-sm font-medium text-ink">{label}</span>
+        <span className="relative block">
+          <input
+            ref={ref}
+            type={visible ? "text" : "password"}
+            className={`h-11 w-full rounded-lg border bg-white px-3 pr-11 text-sm text-ink outline-none transition placeholder:text-slate-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-100 ${error ? "border-red-400" : "border-line"} ${className}`}
+            {...props}
+          />
+          <button
+            type="button"
+            onClick={() => setVisible((current) => !current)}
+            className="absolute inset-y-0 right-0 grid w-11 place-items-center text-slate-500 transition hover:text-brand-600 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-brand-500"
+            aria-label={visible ? "Hide password" : "Show password"}
+            aria-pressed={visible}
+            title={visible ? "Hide password" : "Show password"}
+          >
+            {visible ? <EyeOff size={18} /> : <Eye size={18} />}
+          </button>
+        </span>
+        {error && <span className="text-xs text-red-600">{error}</span>}
+      </label>
+    );
+  },
+);
+PasswordInput.displayName = "PasswordInput";
 export const Select = ({ label, children, ...props }) => (
   <label className="block space-y-1.5">
     <span className="text-sm font-medium text-ink">{label}</span>

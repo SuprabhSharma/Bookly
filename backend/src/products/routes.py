@@ -5,7 +5,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, File, Query, UploadFile, status
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from src.auth.dependencies import AccessTokenBearer, RoleChecker, get_current_user
+from src.auth.dependencies import AccessTokenBearer, RoleChecker, get_verified_user
 from src.db.main import get_session
 from src.db.models import User, Vendor
 from src.errors import InsufficientPermission, ProductNotFound, VendorNotFound
@@ -18,7 +18,7 @@ product_router = APIRouter()
 service = ProductService()
 
 
-async def get_approved_vendor(current_user: User = Depends(get_current_user), session: AsyncSession = Depends(get_session)) -> Vendor:
+async def get_approved_vendor(current_user: User = Depends(get_verified_user), session: AsyncSession = Depends(get_session)) -> Vendor:
     from sqlmodel import select
     result = await session.exec(select(Vendor).where(Vendor.user_id == current_user.uid, Vendor.status == "approved"))
     vendor = result.first()

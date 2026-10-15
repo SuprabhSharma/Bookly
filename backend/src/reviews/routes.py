@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, status
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlmodel import select
 
-from src.auth.dependencies import get_current_user
+from src.auth.dependencies import get_verified_user
 from src.db.main import get_session
 from src.db.models import Product, Review, User
 from src.errors import ProductNotFound, ReviewNotFound
@@ -34,7 +34,7 @@ async def get_product_reviews(slug: str, session: AsyncSession = Depends(get_ses
 async def add_product_review(
     product_id: uuid.UUID,
     data: ReviewCreateModel,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_verified_user),
     session: AsyncSession = Depends(get_session),
 ):
     return await service.add_review_to_product(current_user.email, product_id, data, session)
@@ -61,7 +61,7 @@ async def get_review(uid: uuid.UUID, session: AsyncSession = Depends(get_session
 @review_router.delete("/{uid}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_review(
     uid: uuid.UUID,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_verified_user),
     session: AsyncSession = Depends(get_session),
 ):
     await service.delete_review_to_from_book(str(uid), current_user.email, session)

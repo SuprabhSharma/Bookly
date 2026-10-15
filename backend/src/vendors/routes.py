@@ -4,10 +4,10 @@ from fastapi import APIRouter, Depends, status
 from src.audit import record_audit
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from src.auth.dependencies import RoleChecker, get_current_user
+from src.auth.dependencies import RoleChecker, get_verified_user
 from src.db.main import get_session
 from src.db.models import User
-from src.errors import AccountNotVerified, InsufficientPermission, VendorNotFound
+from src.errors import InsufficientPermission, VendorNotFound
 
 from .schemas import VendorApply, VendorOut, VendorUpdate
 from .service import VendorService
@@ -23,11 +23,9 @@ admin_only = Depends(RoleChecker(["admin"]))
 @vendor_router.post("/apply", response_model=VendorOut, status_code=status.HTTP_201_CREATED)
 async def apply_as_vendor(
     data: VendorApply,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_verified_user),
     session: AsyncSession = Depends(get_session),
 ):
-    if not current_user.is_verified:
-        raise AccountNotVerified()
     if current_user.role != "customer":
         raise InsufficientPermission()
     existing = await service.get_by_user_id(current_user.uid, session)
@@ -40,7 +38,7 @@ async def apply_as_vendor(
 
 @vendor_router.get("/me/profile", response_model=VendorOut)
 async def get_my_profile(
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_verified_user),
     session: AsyncSession = Depends(get_session),
 ):
     vendor = await service.get_by_user_id(current_user.uid, session)
@@ -52,7 +50,7 @@ async def get_my_profile(
 @vendor_router.patch("/me/profile", response_model=VendorOut)
 async def update_my_profile(
     data: VendorUpdate,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_verified_user),
     session: AsyncSession = Depends(get_session),
 ):
     vendor = await service.get_by_user_id(current_user.uid, session)

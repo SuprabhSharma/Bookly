@@ -15,7 +15,7 @@ import {
   signup,
   verifyEmail,
 } from "../api/auth";
-import { Button, Input } from "../components/ui";
+import { Button, Input, PasswordInput } from "../components/ui";
 import { brand } from "../config/brand";
 import { getErrorMessage } from "../lib/errors";
 import { useAuthStore } from "../store/authStore";
@@ -85,9 +85,8 @@ export function Login() {
           error={errors.email?.message}
           {...register("email", { required: "Email is required" })}
         />
-        <Input
+        <PasswordInput
           label="Password"
-          type="password"
           autoComplete="current-password"
           error={errors.password?.message}
           {...register("password", { required: "Password is required" })}
@@ -164,9 +163,8 @@ export function Signup() {
           error={errors.email?.message}
           {...register("email", { required: "Required" })}
         />
-        <Input
+        <PasswordInput
           label="Password"
-          type="password"
           error={errors.password?.message}
           {...register("password", {
             required: "Required",
@@ -316,14 +314,12 @@ export function ResetPassword() {
     <AuthLayout>
       <h1 className="text-2xl font-bold">Choose a new password</h1>
       <form onSubmit={handleSubmit(submit)} className="mt-6 space-y-4">
-        <Input
+        <PasswordInput
           label="New password"
-          type="password"
           {...register("password", { required: true, minLength: 6 })}
         />
-        <Input
+        <PasswordInput
           label="Confirm password"
-          type="password"
           {...register("confirm", { required: true })}
         />
         {error && (
