@@ -34,8 +34,8 @@ version = "v1"
 API_PREFIX = f"/api/{version}"
 
 app = FastAPI(
-    title="Marketplace API",
-    description="Multi-vendor marketplace REST API",
+    title="Tavilo API",
+    description="Tavilo multi-vendor shopping REST API",
     version=version,
     lifespan=life_span,
     docs_url=f"{API_PREFIX}/docs",

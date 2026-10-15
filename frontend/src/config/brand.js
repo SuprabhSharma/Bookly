@@ -1,6 +1,7 @@
 export const brand = {
-  name: 'Marketplace',
+  name: 'Tavilo',
   tagline: 'Good finds. Trusted stores.',
-  logo: 'M',
-  colors: { primary: '#2563eb', accent: '#f59e0b' },
+  logo: '/tavilo-logo.webp',
+  logoAlt: 'Tavilo',
+  colors: { primary: '#0bb5b0', dark: '#10284b', accent: '#f5a623' },
 }

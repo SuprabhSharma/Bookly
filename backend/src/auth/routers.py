@@ -57,7 +57,7 @@ role_dependency = Depends(role_checker)
 async def send_email(emails: EmailModel):
     emails = emails.addresses
 
-    html = "<h1>Welcome to Marketplace</h1>"
+    html = "<h1>Welcome to Tavilo</h1>"
 
     message = create_message(
         recipients=emails,

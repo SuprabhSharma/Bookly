@@ -1,10 +1,218 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
-import { CheckCircle2, Package, Truck } from 'lucide-react'
-import { cancelOrder, getOrder, getOrders } from '../api/shop'
-import { BackLink } from '../components/Page'
-import { Badge, Button, EmptyState, ErrorState, Rating, Skeleton } from '../components/ui'
-import { formatCurrency, formatDate } from '../lib/formatters'
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
+import { CheckCircle2, Package, Truck } from "lucide-react";
+import { cancelOrder, getOrder, getOrders } from "../api/shop";
+import { BackLink } from "../components/Page";
+import {
+  Badge,
+  Button,
+  EmptyState,
+  ErrorState,
+  Rating,
+  Skeleton,
+} from "../components/ui";
+import { formatCurrency, formatDate } from "../lib/formatters";
 
-export function Orders() { const query = useQuery({ queryKey: ['orders'], queryFn: getOrders }); if (query.isLoading) return <div className="mx-auto max-w-4xl px-4 py-8"><Skeleton className="h-8 w-48" /><Skeleton className="mt-8 h-40" /></div>; if (query.isError) return <div className="mx-auto max-w-4xl px-4 py-8"><ErrorState onRetry={query.refetch} /></div>; return <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6"><h1 className="text-2xl font-bold">My orders</h1>{!query.data.length ? <div className="mt-8"><EmptyState title="No orders yet" description="Your completed purchases will appear here." action={<Link to="/products"><Button>Start shopping</Button></Link>} /></div> : <div className="mt-7 space-y-3">{query.data.map((order) => <Link key={order.uid} to={`/orders/${order.uid}`} className="block rounded-card border border-line bg-white p-5 transition hover:border-brand-100 hover:shadow-card"><div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-sm font-bold">Order #{order.uid.slice(0, 8).toUpperCase()}</p><p className="mt-1 text-xs text-muted">{formatDate(order.created_at)} · {order.sub_orders?.length || 0} store(s)</p></div><div className="text-right"><Badge tone={order.status === 'cancelled' ? 'danger' : order.status === 'delivered' ? 'success' : 'warning'}>{order.status}</Badge><p className="mt-2 text-sm font-bold">{formatCurrency(order.total)}</p></div></div></Link>)}</div>}</div> }
-export function OrderDetail() { const { id, success } = useParams(); const navigate = useNavigate(); const location = useLocation(); const queryClient = useQueryClient(); const query = useQuery({ queryKey: ['order', id], queryFn: () => getOrder(id), initialData: location.state?.order }); const cancel = useMutation({ mutationFn: () => cancelOrder(id), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['order', id] }); queryClient.invalidateQueries({ queryKey: ['orders'] }) } }); if (query.isLoading) return <div className="mx-auto max-w-4xl px-4 py-8"><Skeleton className="h-8 w-48" /><Skeleton className="mt-8 h-64" /></div>; if (query.isError) return <div className="mx-auto max-w-4xl px-4 py-8"><ErrorState onRetry={query.refetch} /></div>; const order = query.data; return <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6">{success ? <div className="mb-7 flex items-center gap-3 rounded-card bg-emerald-50 p-5 text-emerald-800"><CheckCircle2 /><div><p className="font-bold">Order placed successfully</p><p className="mt-1 text-sm">Thanks for shopping with Marketplace.</p></div></div> : <BackLink to="/orders" />}<div className="flex flex-wrap items-start justify-between gap-3"><div><h1 className="text-2xl font-bold">Order #{order.uid.slice(0, 8).toUpperCase()}</h1><p className="mt-2 text-sm text-muted">Placed on {formatDate(order.created_at)}</p></div><Badge tone={order.status === 'cancelled' ? 'danger' : 'warning'}>{order.status}</Badge></div><div className="mt-7 space-y-4">{order.sub_orders?.map((sub) => <section key={sub.uid} className="rounded-card border border-line bg-white p-5"><div className="flex items-center gap-2"><Package size={18} className="text-brand-600" /><h2 className="font-bold">Store order</h2><Badge>{sub.status}</Badge></div><div className="mt-4 divide-y divide-line">{sub.items?.map((item) => <div key={item.uid} className="flex items-center justify-between gap-3 py-3 text-sm"><span>{item.title_snapshot} <span className="text-muted">× {item.quantity}</span></span><b>{formatCurrency(item.line_total || Number(item.price_snapshot) * item.quantity)}</b></div>)}</div><div className="mt-3 flex justify-between border-t border-line pt-3 text-sm font-bold"><span>Store subtotal</span><span>{formatCurrency(sub.subtotal)}</span></div></section>)}</div><div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-card border border-line bg-white p-5"><div><p className="text-sm text-muted">Total paid / payable</p><p className="mt-1 text-xl font-bold">{formatCurrency(order.total)}</p></div>{order.status === 'placed' && <Button variant="danger" loading={cancel.isPending} onClick={() => cancel.mutate()}>Cancel order</Button>}</div><div className="mt-5 rounded-card border border-line bg-white p-5"><h2 className="font-bold">Delivery address</h2><p className="mt-3 text-sm leading-6 text-muted">{order.address_snapshot?.name}<br />{order.address_snapshot?.line1}{order.address_snapshot?.line2 && `, ${order.address_snapshot.line2}`}<br />{order.address_snapshot?.city}, {order.address_snapshot?.state} — {order.address_snapshot?.pincode}</p></div>{success && <Button className="mt-6" onClick={() => navigate('/products')}>Continue shopping</Button>}</div> }
+export function Orders() {
+  const query = useQuery({ queryKey: ["orders"], queryFn: getOrders });
+  if (query.isLoading)
+    return (
+      <div className="mx-auto max-w-4xl px-4 py-8">
+        <Skeleton className="h-8 w-48" />
+        <Skeleton className="mt-8 h-40" />
+      </div>
+    );
+  if (query.isError)
+    return (
+      <div className="mx-auto max-w-4xl px-4 py-8">
+        <ErrorState onRetry={query.refetch} />
+      </div>
+    );
+  return (
+    <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6">
+      <h1 className="text-2xl font-bold">My orders</h1>
+      {!query.data.length ? (
+        <div className="mt-8">
+          <EmptyState
+            title="No orders yet"
+            description="Your completed purchases will appear here."
+            action={
+              <Link to="/products">
+                <Button>Start shopping</Button>
+              </Link>
+            }
+          />
+        </div>
+      ) : (
+        <div className="mt-7 space-y-3">
+          {query.data.map((order) => (
+            <Link
+              key={order.uid}
+              to={`/orders/${order.uid}`}
+              className="block rounded-card border border-line bg-white p-5 transition hover:border-brand-100 hover:shadow-card"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-bold">
+                    Order #{order.uid.slice(0, 8).toUpperCase()}
+                  </p>
+                  <p className="mt-1 text-xs text-muted">
+                    {formatDate(order.created_at)} Â·{" "}
+                    {order.sub_orders?.length || 0} store(s)
+                  </p>
+                </div>
+                <div className="text-right">
+                  <Badge
+                    tone={
+                      order.status === "cancelled"
+                        ? "danger"
+                        : order.status === "delivered"
+                          ? "success"
+                          : "warning"
+                    }
+                  >
+                    {order.status}
+                  </Badge>
+                  <p className="mt-2 text-sm font-bold">
+                    {formatCurrency(order.total)}
+                  </p>
+                </div>
+              </div>
+            </Link>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+export function OrderDetail() {
+  const { id, success } = useParams();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const queryClient = useQueryClient();
+  const query = useQuery({
+    queryKey: ["order", id],
+    queryFn: () => getOrder(id),
+    initialData: location.state?.order,
+  });
+  const cancel = useMutation({
+    mutationFn: () => cancelOrder(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["order", id] });
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
+    },
+  });
+  if (query.isLoading)
+    return (
+      <div className="mx-auto max-w-4xl px-4 py-8">
+        <Skeleton className="h-8 w-48" />
+        <Skeleton className="mt-8 h-64" />
+      </div>
+    );
+  if (query.isError)
+    return (
+      <div className="mx-auto max-w-4xl px-4 py-8">
+        <ErrorState onRetry={query.refetch} />
+      </div>
+    );
+  const order = query.data;
+  return (
+    <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6">
+      {success ? (
+        <div className="mb-7 flex items-center gap-3 rounded-card bg-emerald-50 p-5 text-emerald-800">
+          <CheckCircle2 />
+          <div>
+            <p className="font-bold">Order placed successfully</p>
+            <p className="mt-1 text-sm">Thanks for shopping with Tavilo.</p>
+          </div>
+        </div>
+      ) : (
+        <BackLink to="/orders" />
+      )}
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold">
+            Order #{order.uid.slice(0, 8).toUpperCase()}
+          </h1>
+          <p className="mt-2 text-sm text-muted">
+            Placed on {formatDate(order.created_at)}
+          </p>
+        </div>
+        <Badge tone={order.status === "cancelled" ? "danger" : "warning"}>
+          {order.status}
+        </Badge>
+      </div>
+      <div className="mt-7 space-y-4">
+        {order.sub_orders?.map((sub) => (
+          <section
+            key={sub.uid}
+            className="rounded-card border border-line bg-white p-5"
+          >
+            <div className="flex items-center gap-2">
+              <Package size={18} className="text-brand-600" />
+              <h2 className="font-bold">Store order</h2>
+              <Badge>{sub.status}</Badge>
+            </div>
+            <div className="mt-4 divide-y divide-line">
+              {sub.items?.map((item) => (
+                <div
+                  key={item.uid}
+                  className="flex items-center justify-between gap-3 py-3 text-sm"
+                >
+                  <span>
+                    {item.title_snapshot}{" "}
+                    <span className="text-muted">Ã— {item.quantity}</span>
+                  </span>
+                  <b>
+                    {formatCurrency(
+                      item.line_total ||
+                        Number(item.price_snapshot) * item.quantity,
+                    )}
+                  </b>
+                </div>
+              ))}
+            </div>
+            <div className="mt-3 flex justify-between border-t border-line pt-3 text-sm font-bold">
+              <span>Store subtotal</span>
+              <span>{formatCurrency(sub.subtotal)}</span>
+            </div>
+          </section>
+        ))}
+      </div>
+      <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-card border border-line bg-white p-5">
+        <div>
+          <p className="text-sm text-muted">Total paid / payable</p>
+          <p className="mt-1 text-xl font-bold">
+            {formatCurrency(order.total)}
+          </p>
+        </div>
+        {order.status === "placed" && (
+          <Button
+            variant="danger"
+            loading={cancel.isPending}
+            onClick={() => cancel.mutate()}
+          >
+            Cancel order
+          </Button>
+        )}
+      </div>
+      <div className="mt-5 rounded-card border border-line bg-white p-5">
+        <h2 className="font-bold">Delivery address</h2>
+        <p className="mt-3 text-sm leading-6 text-muted">
+          {order.address_snapshot?.name}
+          <br />
+          {order.address_snapshot?.line1}
+          {order.address_snapshot?.line2 && `, ${order.address_snapshot.line2}`}
+          <br />
+          {order.address_snapshot?.city}, {order.address_snapshot?.state} â€”{" "}
+          {order.address_snapshot?.pincode}
+        </p>
+      </div>
+      {success && (
+        <Button className="mt-6" onClick={() => navigate("/products")}>
+          Continue shopping
+        </Button>
+      )}
+    </div>
+  );
+}
