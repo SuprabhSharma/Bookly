@@ -6,3 +6,5 @@ __pycache__
 .venv/
 .uv-cache/
 node_modules/
+dist/
+.DS_Store
