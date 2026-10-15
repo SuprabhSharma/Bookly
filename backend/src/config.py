@@ -24,9 +24,9 @@ class Settings(BaseSettings):
     # Frontend URL for email links (verify-email, reset-password)
     FRONTEND_URL: str = "http://localhost:5173"
     # Comma-separated allowed CORS origins
-    CORS_ORIGINS: str = "http://localhost:5173,http://localhost:3000"
+    CORS_ORIGINS: str
     # Comma-separated allowed hosts for TrustedHostMiddleware
-    TRUSTED_HOSTS: str = "localhost,127.0.0.1"
+    TRUSTED_HOSTS: str
     APP_ENV: str = "development"
     ADMIN_BOOTSTRAP_PASSWORD: str | None = None
     REFRESH_COOKIE_NAME: str = "tavilo_refresh"

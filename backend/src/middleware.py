@@ -1,4 +1,3 @@
-import os
 from typing import List
 
 from fastapi import FastAPI
@@ -7,6 +6,8 @@ from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.requests import Request
 import logging
 import time
+
+from .config import Config
 
 logger = logging.getLogger("uvicorn.access")
 logger.disabled = True
@@ -30,9 +31,13 @@ def register_middleware(app: FastAPI):
         print(message)
         return response
 
-    # CORS — read from env; do NOT combine allow_origins=["*"] with allow_credentials=True
-    cors_origins_raw = os.getenv("CORS_ORIGINS", "http://localhost:5173,http://localhost:3000")
-    cors_origins: List[str] = [o.strip() for o in cors_origins_raw.split(",") if o.strip()]
+    # Values are loaded from backend/.env through Config.
+    # Do not combine allow_origins=["*"] with allow_credentials=True.
+    cors_origins: List[str] = [
+        origin.strip()
+        for origin in Config.CORS_ORIGINS.split(",")
+        if origin.strip()
+    ]
 
     app.add_middleware(
         CORSMiddleware,
@@ -42,9 +47,11 @@ def register_middleware(app: FastAPI):
         allow_credentials=True,
     )
 
-    # Trusted hosts — read from env
-    trusted_hosts_raw = os.getenv("TRUSTED_HOSTS", "localhost,127.0.0.1")
-    trusted_hosts: List[str] = [h.strip() for h in trusted_hosts_raw.split(",") if h.strip()]
+    trusted_hosts: List[str] = [
+        host.strip()
+        for host in Config.TRUSTED_HOSTS.split(",")
+        if host.strip()
+    ]
 
     app.add_middleware(
         TrustedHostMiddleware,
