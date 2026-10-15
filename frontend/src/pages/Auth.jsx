@@ -75,7 +75,7 @@ export function Login() {
     <AuthLayout>
       <h1 className="text-2xl font-bold">Sign in</h1>
       <p className="mt-2 text-sm text-muted">
-        Customers, vendors and admins use this same sign-in page.
+        Your gateway to shopping, selling, and managing you business.
       </p>
       <form onSubmit={handleSubmit(submit)} className="mt-6 space-y-4">
         <Input
