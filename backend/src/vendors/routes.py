@@ -80,6 +80,7 @@ async def approve_vendor(
     result = await service.set_status(vendor, "approved", session)
     await record_audit(session, "admin.vendor_approved", current_user.uid, "vendor", str(uid))
     await session.commit()
+    await session.refresh(result)
     return result
 
 
@@ -95,6 +96,7 @@ async def suspend_vendor(
     result = await service.set_status(vendor, "suspended", session)
     await record_audit(session, "admin.vendor_suspended", current_user.uid, "vendor", str(uid))
     await session.commit()
+    await session.refresh(result)
     return result
 
 

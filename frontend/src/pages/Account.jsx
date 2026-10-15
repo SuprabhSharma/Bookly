@@ -13,9 +13,10 @@ export default function Account() {
   const navigate = useNavigate();
   const { accessToken, user, setUser } = useAuthStore();
   const me = useQuery({
-    queryKey: ["me"],
+    queryKey: ["me", user?.uid],
     queryFn: getMe,
     enabled: Boolean(accessToken),
+    staleTime: 0,
   });
   const addresses = useQuery({
     queryKey: ["addresses"],

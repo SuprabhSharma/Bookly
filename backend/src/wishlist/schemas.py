@@ -4,6 +4,8 @@ from typing import List
 
 from pydantic import BaseModel
 
+from src.products.schemas import ProductSummaryOut
+
 
 class WishlistItemAdd(BaseModel):
     product_id: uuid.UUID
@@ -15,6 +17,7 @@ class WishlistItemOut(BaseModel):
     product_title: str
     product_slug: str
     created_at: datetime
+    product: ProductSummaryOut
 
     class Config:
         from_attributes = True

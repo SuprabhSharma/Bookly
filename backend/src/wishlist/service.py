@@ -1,6 +1,4 @@
 import uuid
-from typing import List
-
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -23,11 +21,14 @@ class WishlistService:
                     product_title=w.product.title,
                     product_slug=w.product.slug,
                     created_at=w.created_at,
+                    product=w.product,
                 ))
         return WishlistOut(items=out, total=len(out))
 
     async def add(self, user_id: uuid.UUID, product_id: uuid.UUID, session: AsyncSession) -> WishlistOut:
-        p_result = await session.exec(select(Product).where(Product.uid == product_id))
+        p_result = await session.exec(
+            select(Product).where(Product.uid == product_id, Product.status == "active")
+        )
         if not p_result.first():
             raise ProductNotFound()
         # idempotent

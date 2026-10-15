@@ -9,3 +9,4 @@ PyJWT
 pydantic-settings
 sqlalchemy[asyncio]
 sqlmodel
+Pillow

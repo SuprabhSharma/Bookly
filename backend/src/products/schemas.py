@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 from decimal import Decimal
-from typing import List, Optional
+from typing import Optional
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -15,9 +15,21 @@ class ProductImageOut(BaseModel):
         from_attributes = True
 
 
+class ProductSummaryOut(BaseModel):
+    uid: uuid.UUID
+    title: str
+    slug: str
+    price: Decimal
+    stock: int
+    images: list[ProductImageOut] = []
+
+    class Config:
+        from_attributes = True
+
+
 class ProductBase(BaseModel):
     title: str
-    description: Optional[str] = None
+    description: str | None = None
     price: Decimal = Field(..., ge=0)
     mrp: Optional[Decimal] = Field(default=None, ge=0)
     stock: int = Field(default=0, ge=0)
@@ -28,7 +40,7 @@ class ProductBase(BaseModel):
 
 class ProductCreate(ProductBase):
     slug: str
-    image_urls: List[str] = []
+    image_urls: list[str] = []
 
 
 class ProductUpdate(BaseModel):
@@ -41,7 +53,7 @@ class ProductUpdate(BaseModel):
     category_id: Optional[uuid.UUID] = None
     status: Optional[str] = None
     attributes: Optional[dict] = None
-    image_urls: Optional[List[str]] = None
+    image_urls: Optional[list[str]] = None
 
 
 class VendorMiniOut(BaseModel):
@@ -77,7 +89,7 @@ class ProductOut(BaseModel):
     attributes: Optional[dict] = None
     vendor: Optional[VendorMiniOut] = None
     category: Optional[CategoryMiniOut] = None
-    images: List[ProductImageOut] = []
+    images: list[ProductImageOut] = []
     created_at: datetime
 
     class Config:
@@ -85,7 +97,7 @@ class ProductOut(BaseModel):
 
 
 class ProductListOut(BaseModel):
-    items: List[ProductOut]
+    items: list[ProductOut]
     total: int
     page: int
     page_size: int

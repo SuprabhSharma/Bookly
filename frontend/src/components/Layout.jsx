@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Link,
   NavLink,
@@ -18,8 +19,8 @@ import {
 } from "lucide-react";
 import { brand } from "../config/brand";
 import { useAuthStore } from "../store/authStore";
-import { useCartStore } from "../store/cartStore";
 import { api } from "../lib/apiClient";
+import { getCart } from "../api/shop";
 
 const nav = [
   { to: "/", label: "Home", icon: Home },
@@ -35,7 +36,13 @@ export default function ShopLayout() {
   const location = useLocation();
   const user = useAuthStore((state) => state.user);
   const logout = useAuthStore((state) => state.logout);
-  const guestItems = useCartStore((state) => state.items);
+  const loggedIn = Boolean(useAuthStore((state) => state.accessToken));
+  const cart = useQuery({
+    queryKey: ["cart"],
+    queryFn: getCart,
+    enabled: loggedIn,
+  });
+  const queryClient = useQueryClient();
   useEffect(() => {
     setMenuOpen(false);
   }, [location.pathname]);
@@ -51,10 +58,13 @@ export default function ShopLayout() {
     } catch {
       /* session is cleared locally */
     }
+    queryClient.clear();
     logout();
     navigate("/");
   };
-  const count = guestItems.reduce((sum, item) => sum + item.quantity, 0);
+  const count = loggedIn
+    ? cart.data?.items?.reduce((sum, item) => sum + item.quantity, 0) || 0
+    : 0;
   return (
     <div className="min-h-screen bg-slate-50 pb-20 text-ink md:pb-0">
       <header className="sticky top-0 z-30 border-b border-line bg-white">

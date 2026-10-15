@@ -16,6 +16,10 @@ export default function Home() {
     queryKey: ["products", { sort: "rating", page_size: 8 }],
     queryFn: () => listProducts({ sort: "rating", page_size: 8 }),
   });
+  const allProducts = useQuery({
+    queryKey: ["products", { page: 1, page_size: 8 }],
+    queryFn: () => listProducts({ page: 1, page_size: 8 }),
+  });
   const newest = useQuery({
     queryKey: ["products", { sort: "newest", page_size: 8 }],
     queryFn: () => listProducts({ sort: "newest", page_size: 8 }),
@@ -132,7 +136,11 @@ export default function Home() {
         )}
       </section>
       <section className="mx-auto max-w-7xl px-4 pb-12 sm:px-6 lg:px-8">
-        <SectionTitle title="Trending now" />
+        <SectionTitle title="All products" to="/products" />
+        <CatalogRow query={allProducts} showCart={false} />
+      </section>
+      <section className="mx-auto max-w-7xl px-4 pb-12 sm:px-6 lg:px-8">
+        <SectionTitle title="Top rated" to="/products?sort=rating" />
         <CatalogRow query={trending} />
       </section>
       <section className="mx-auto max-w-7xl px-4 pb-16 sm:px-6 lg:px-8">
@@ -142,13 +150,13 @@ export default function Home() {
     </div>
   );
 }
-function CatalogRow({ query }) {
+function CatalogRow({ query, showCart = true }) {
   if (query.isLoading) return <ProductGridSkeleton />;
   if (query.isError) return <ErrorState onRetry={query.refetch} />;
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-      {query.data.items.map((product) => (
-        <ProductCard key={product.uid} product={product} />
+      {(query.data?.items || []).map((product) => (
+        <ProductCard key={product.uid} product={product} showCart={showCart} />
       ))}
     </div>
   );

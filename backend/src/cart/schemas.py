@@ -4,6 +4,8 @@ from typing import List
 
 from pydantic import BaseModel, Field
 
+from src.products.schemas import ProductSummaryOut
+
 
 class CartItemAdd(BaseModel):
     product_id: uuid.UUID
@@ -21,6 +23,7 @@ class CartItemOut(BaseModel):
     unit_price: Decimal
     line_total: Decimal
     product_title: str
+    product: ProductSummaryOut
 
     class Config:
         from_attributes = True

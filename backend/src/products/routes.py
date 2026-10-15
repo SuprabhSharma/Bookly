@@ -2,7 +2,7 @@ import uuid
 from decimal import Decimal
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, File, Query, UploadFile, status
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from src.auth.dependencies import AccessTokenBearer, RoleChecker, get_current_user
@@ -12,6 +12,7 @@ from src.errors import InsufficientPermission, ProductNotFound, VendorNotFound
 
 from .schemas import ProductCreate, ProductListOut, ProductOut, ProductUpdate
 from .service import ProductService
+from .image_storage import save_product_images
 
 product_router = APIRouter()
 service = ProductService()
@@ -73,6 +74,15 @@ async def vendor_list_products(
     session: AsyncSession = Depends(get_session),
 ):
     return await service.get_vendor_products(vendor.uid, session, page=page, page_size=page_size)
+
+
+@product_router.post("/vendor/me/images")
+async def vendor_upload_product_images(
+    files: list[UploadFile] = File(...),
+    vendor: Vendor = Depends(get_approved_vendor),
+):
+    del vendor
+    return {"images": await save_product_images(files)}
 
 
 @product_router.post("/vendor/me", response_model=ProductOut, status_code=status.HTTP_201_CREATED)

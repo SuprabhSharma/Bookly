@@ -15,6 +15,7 @@ export default function ProductListing() {
   const q = params.get("q") || "";
   const sort = params.get("sort") || "newest";
   const inStock = params.get("in_stock") === "true";
+  const isAllProducts = !params.get("sort") && !category && !q && !inStock;
   const queryParams = useMemo(
     () => ({
       page,
@@ -114,7 +115,11 @@ export default function ProductListing() {
           </div>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
             {products.data.items.map((product) => (
-              <ProductCard key={product.uid} product={product} />
+              <ProductCard
+                key={product.uid}
+                product={product}
+                showCart={!isAllProducts}
+              />
             ))}
           </div>
           <div className="mt-8 flex items-center justify-center gap-3">

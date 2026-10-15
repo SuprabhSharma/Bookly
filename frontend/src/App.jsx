@@ -1,11 +1,8 @@
-import { lazy, Suspense, useEffect } from "react";
+import { lazy, Suspense } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
-import { useMutation } from "@tanstack/react-query";
 import ShopLayout from "./components/Layout";
 import { Skeleton } from "./components/ui";
-import { addCartItem } from "./api/shop";
 import { useAuthStore } from "./store/authStore";
-import { useCartStore } from "./store/cartStore";
 
 const Home = lazy(() => import("./pages/Home"));
 const ProductListing = lazy(() => import("./pages/ProductListing"));
@@ -69,27 +66,9 @@ function RoleRoute({ role, children }) {
     );
   return children;
 }
-function GuestCartSync() {
-  const token = useAuthStore((state) => state.accessToken);
-  const items = useCartStore((state) => state.items);
-  const clear = useCartStore((state) => state.clear);
-  const sync = useMutation({
-    mutationFn: async () => {
-      for (const item of items)
-        await addCartItem(item.product.uid, item.quantity);
-    },
-    onSuccess: clear,
-  });
-  const { mutate, isPending } = sync;
-  useEffect(() => {
-    if (token && items.length && !isPending && !sync.isError) mutate();
-  }, [token, items.length, isPending, sync.isError, mutate]);
-  return null;
-}
 export default function App() {
   return (
     <>
-      <GuestCartSync />
       <Suspense fallback={<Loading />}>
         <Routes>
           <Route element={<ShopLayout />}>
@@ -99,7 +78,14 @@ export default function App() {
             <Route path="/search" element={<ProductListing />} />
             <Route path="/p/:slug" element={<ProductDetail />} />
             <Route path="/store/:slug" element={<VendorStore />} />
-            <Route path="/cart" element={<Cart />} />
+            <Route
+              path="/cart"
+              element={
+                <ProtectedRoute>
+                  <Cart />
+                </ProtectedRoute>
+              }
+            />
             <Route
               path="/checkout"
               element={

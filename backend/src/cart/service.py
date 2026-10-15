@@ -1,6 +1,7 @@
 import uuid
 from decimal import Decimal
 
+from fastapi import HTTPException
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -36,6 +37,7 @@ class CartService:
                     unit_price=item.product.price,
                     line_total=line,
                     product_title=item.product.title,
+                    product=item.product,
                 ))
         return CartOut(uid=cart.uid, items=items_out, subtotal=subtotal)
 
@@ -46,14 +48,14 @@ class CartService:
         product = p_result.first()
         if not product:
             raise ProductNotFound()
+        if product.stock < data.quantity:
+            raise HTTPException(status_code=400, detail=f"Insufficient stock for: {product.title}")
         # upsert
         item_result = await session.exec(
             select(CartItem).where(CartItem.cart_id == cart.uid, CartItem.product_id == data.product_id)
         )
         item = item_result.first()
-        if item:
-            item.quantity += data.quantity
-        else:
+        if not item:
             item = CartItem(cart_id=cart.uid, product_id=data.product_id, quantity=data.quantity)
             session.add(item)
         await session.commit()
@@ -65,6 +67,14 @@ class CartService:
         item = item_result.first()
         if not item:
             raise ProductNotFound()
+        product_result = await session.exec(
+            select(Product).where(Product.uid == item.product_id, Product.status == "active")
+        )
+        product = product_result.first()
+        if not product:
+            raise ProductNotFound()
+        if product.stock < data.quantity:
+            raise HTTPException(status_code=400, detail=f"Insufficient stock for: {product.title}")
         item.quantity = data.quantity
         await session.commit()
         return await self.get_cart(user_id, session)

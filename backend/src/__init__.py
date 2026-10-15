@@ -1,7 +1,9 @@
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from src.addresses.routes import address_router
 from src.admin.routes import admin_router
@@ -11,10 +13,11 @@ from src.cart.routes import cart_router
 from src.categories.routes import category_router
 from src.db.main import init_db
 from src.orders.routes import order_router
+from src.products.image_storage import PRODUCT_IMAGE_DIR
 from src.products.routes import product_router
 from src.reviews.routes import product_review_router, review_router
-from src.tags.routes import tags_router
 from src.services.routes import service_router
+from src.tags.routes import tags_router
 from src.vendors.routes import vendor_router
 from src.wishlist.routes import wishlist_router
 
@@ -42,6 +45,8 @@ app = FastAPI(
     redoc_url=f"{API_PREFIX}/redoc",
     contact={"email": "sharmasuprabh2608@gmail.com"},
 )
+PRODUCT_IMAGE_DIR.mkdir(parents=True, exist_ok=True)
+app.mount("/media", StaticFiles(directory=Path(__file__).resolve().parent.parent / "uploads"), name="media")
 
 register_all_errors(app)
 register_middleware(app)

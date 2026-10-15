@@ -14,6 +14,10 @@ import {
   Plus,
   Store,
   Trash2,
+  Upload,
+  X,
+  ZoomIn,
+  GripVertical,
   WalletCards,
 } from "lucide-react";
 import { listCategories } from "../api/catalog";
@@ -23,12 +27,13 @@ import {
   createVendorService,
   deleteVendorProduct,
   deleteVendorService,
-  getVendorProducts,
+  getAllVendorProducts,
+  getAllVendorServices,
   getVendorProfile,
-  getVendorServices,
   updateVendorProduct,
   updateVendorService,
   updateVendorProfile,
+  uploadVendorProductImages,
 } from "../api/vendor";
 import { BackLink, PageHeader } from "../components/Page";
 import {
@@ -42,6 +47,8 @@ import {
 } from "../components/ui";
 import { getErrorMessage } from "../lib/errors";
 import { formatCurrency, formatDate } from "../lib/formatters";
+
+const LOW_STOCK_THRESHOLD = 5;
 
 const navItems = [
   { to: "/vendor", label: "Overview", icon: LayoutDashboard },
@@ -350,11 +357,11 @@ function PendingVendor({ profile }) {
 function ApprovedOverview({ vendor }) {
   const products = useQuery({
     queryKey: ["vendor-products"],
-    queryFn: () => getVendorProducts({ page_size: 100 }),
+    queryFn: getAllVendorProducts,
   });
   const items = products.data?.items || [];
   const active = items.filter((item) => item.status === "active");
-  const lowStock = items.filter((item) => item.stock < 10);
+  const lowStock = items.filter((item) => item.stock <= LOW_STOCK_THRESHOLD);
   const inventoryValue = items.reduce(
     (sum, item) => sum + Number(item.price || 0) * Number(item.stock || 0),
     0,
@@ -396,7 +403,7 @@ function ApprovedOverview({ vendor }) {
             />
             <Metric
               icon={CircleAlert}
-              label="Low stock"
+              label="Low-stock products"
               value={lowStock.length}
               tone={lowStock.length ? "warning" : "default"}
             />
@@ -434,7 +441,13 @@ function ApprovedOverview({ vendor }) {
                           {formatCurrency(product.price)}
                         </p>
                       </div>
-                      <Badge tone={product.stock < 10 ? "warning" : "success"}>
+                      <Badge
+                        tone={
+                          product.stock <= LOW_STOCK_THRESHOLD
+                            ? "warning"
+                            : "success"
+                        }
+                      >
                         {product.status}
                       </Badge>
                     </div>
@@ -502,7 +515,7 @@ function VendorProducts({ profile }) {
   const [error, setError] = useState("");
   const products = useQuery({
     queryKey: ["vendor-products"],
-    queryFn: () => getVendorProducts({ page_size: 100 }),
+    queryFn: getAllVendorProducts,
     enabled: profile.data?.status === "approved",
   });
   const categories = useQuery({
@@ -581,7 +594,7 @@ function VendorProducts({ profile }) {
               </div>
               <p className="text-sm">{formatCurrency(product.price)}</p>
               <p
-                className={`text-sm ${product.stock < 10 ? "font-semibold text-amber-700" : ""}`}
+                className={`text-sm ${product.stock <= LOW_STOCK_THRESHOLD ? "font-semibold text-amber-700" : ""}`}
               >
                 {product.stock}
               </p>
@@ -631,8 +644,19 @@ function VendorProducts({ profile }) {
           product={editing.uid ? editing : null}
           categories={categories.data || []}
           onClose={() => setEditing(null)}
-          onSaved={() => {
+          onSaved={(updatedProduct) => {
             setEditing(null);
+            if (updatedProduct?.uid) {
+              queryClient.setQueryData(["vendor-products"], (current) => {
+                if (!current?.items) return current;
+                return {
+                  ...current,
+                  items: current.items.map((item) =>
+                    item.uid === updatedProduct.uid ? updatedProduct : item,
+                  ),
+                };
+              });
+            }
             queryClient.invalidateQueries({ queryKey: ["vendor-products"] });
           }}
         />
@@ -647,7 +671,7 @@ function VendorServices({ profile }) {
   const [error, setError] = useState("");
   const services = useQuery({
     queryKey: ["vendor-services"],
-    queryFn: () => getVendorServices({ page_size: 100 }),
+    queryFn: getAllVendorServices,
     enabled: profile.data?.status === "approved",
   });
   const remove = useMutation({
@@ -782,7 +806,9 @@ function ServiceEditor({ service, onClose, onSaved }) {
       service
         ? updateVendorService(service.uid, payload)
         : createVendorService(payload),
-    onSuccess: onSaved,
+    onSuccess: (updatedProduct) => {
+      onSaved(updatedProduct);
+    },
     onError: (e) => setError(getErrorMessage(e)),
   });
   const update = (key, value) =>
@@ -892,6 +918,11 @@ function ProductEditor({ product, categories, onClose, onSaved }) {
   const [form, setForm] = useState(() =>
     product ? toForm(product) : blankProduct(),
   );
+  const [images, setImages] = useState(() =>
+    product ? (product.images || []).map((image) => image.url) : [],
+  );
+  const [uploading, setUploading] = useState(false);
+  const [zoomedImage, setZoomedImage] = useState(null);
   const mutation = useMutation({
     mutationFn: (payload) =>
       product
@@ -902,6 +933,32 @@ function ProductEditor({ product, categories, onClose, onSaved }) {
   });
   const update = (key, value) =>
     setForm((current) => ({ ...current, [key]: value }));
+  const handleImageUpload = async (event) => {
+    const files = Array.from(event.target.files || []);
+    event.target.value = "";
+    if (!files.length) return;
+    setUploading(true);
+    setError("");
+    try {
+      const data = await uploadVendorProductImages(files);
+      setImages((current) => [...current, ...data.images]);
+    } catch (uploadError) {
+      setError(getErrorMessage(uploadError));
+    } finally {
+      setUploading(false);
+    }
+  };
+  const removeImage = (index) =>
+    setImages((current) => current.filter((_, imageIndex) => imageIndex !== index));
+  const moveImage = (fromIndex, toIndex) => {
+    if (fromIndex === toIndex) return;
+    setImages((current) => {
+      const next = [...current];
+      const [moved] = next.splice(fromIndex, 1);
+      next.splice(toIndex, 0, moved);
+      return next;
+    });
+  };
   const submit = (event) => {
     event.preventDefault();
     setError("");
@@ -913,10 +970,7 @@ function ProductEditor({ product, categories, onClose, onSaved }) {
       mrp: form.mrp ? Number(form.mrp) : null,
       stock: Number(form.stock || 0),
       category_id: form.category_id || null,
-      image_urls: form.image_urls
-        .split(/[,\n]/)
-        .map((url) => url.trim())
-        .filter(Boolean),
+      image_urls: images,
     });
   };
   return (
@@ -982,7 +1036,12 @@ function ProductEditor({ product, categories, onClose, onSaved }) {
             type="number"
             min="0"
             value={form.stock}
-            onChange={(e) => update("stock", e.target.value)}
+            onChange={(e) =>
+              update(
+                "stock",
+                e.target.value === "" ? "" : Number.parseInt(e.target.value, 10),
+              )
+            }
           />
           <Input
             label="SKU (optional)"
@@ -1013,14 +1072,59 @@ function ProductEditor({ product, categories, onClose, onSaved }) {
             </Select>
           )}
           <label className="space-y-1.5 sm:col-span-2">
-            <span className="text-sm font-medium">Image URLs</span>
-            <textarea
-              rows="3"
-              value={form.image_urls}
-              onChange={(e) => update("image_urls", e.target.value)}
-              className="w-full rounded-lg border border-line px-3 py-3 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
-              placeholder="Paste one image URL per line"
-            />
+            <span className="text-sm font-medium">Product photos</span>
+            <span className="block text-xs text-muted">
+              Upload up to 10 photos. Images are automatically compressed for storage.
+            </span>
+            <label className="mt-2 flex min-h-28 cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-line bg-slate-50 text-center transition hover:border-brand-500 hover:bg-brand-50">
+              <Upload size={22} className="text-brand-600" />
+              <span className="mt-1 text-sm font-semibold text-ink">
+                {uploading ? "Uploading and compressing..." : "Choose product photos"}
+              </span>
+              <span className="text-xs text-muted">JPG, PNG or WebP, up to 10 MB each</span>
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                multiple
+                disabled={uploading}
+                onChange={handleImageUpload}
+                className="sr-only"
+              />
+            </label>
+            {images.length > 0 && (
+              <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                {images.map((url, index) => (
+                  <div
+                    key={`${url}-${index}`}
+                    draggable
+                    onDragStart={(event) => {
+                      event.dataTransfer.effectAllowed = "move";
+                      event.dataTransfer.setData("text/plain", String(index));
+                    }}
+                    onDragOver={(event) => event.preventDefault()}
+                    onDrop={(event) => {
+                      event.preventDefault();
+                      moveImage(Number(event.dataTransfer.getData("text/plain")), index);
+                    }}
+                    className="group relative aspect-square overflow-hidden rounded-lg border border-line bg-slate-100"
+                  >
+                    <img src={url} alt={`Product photo ${index + 1}`} className="h-full w-full object-cover" />
+                    <span className="absolute left-1 top-1 rounded bg-black/60 px-1.5 py-0.5 text-xs font-semibold text-white">
+                      {index + 1}
+                    </span>
+                    <div className="absolute inset-x-0 bottom-0 flex justify-between bg-black/60 p-1 opacity-0 transition group-hover:opacity-100">
+                      <button type="button" onClick={() => setZoomedImage(url)} className="rounded p-1 text-white hover:bg-white/20" aria-label="Zoom image">
+                        <ZoomIn size={16} />
+                      </button>
+                      <span className="p-1 text-white" title="Drag to reorder"><GripVertical size={16} /></span>
+                      <button type="button" onClick={() => removeImage(index)} className="rounded p-1 text-white hover:bg-red-500" aria-label="Remove image">
+                        <X size={16} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </label>
           {error && (
             <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700 sm:col-span-2">
@@ -1031,12 +1135,20 @@ function ProductEditor({ product, categories, onClose, onSaved }) {
             <Button type="button" variant="outline" onClick={onClose}>
               Cancel
             </Button>
-            <Button loading={mutation.isPending}>
+            <Button loading={mutation.isPending || uploading} disabled={uploading}>
               {product ? "Save changes" : "Publish product"}
             </Button>
           </div>
         </form>
       </div>
+      {zoomedImage && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-5" onClick={() => setZoomedImage(null)}>
+          <button type="button" onClick={() => setZoomedImage(null)} className="absolute right-5 top-5 rounded-full bg-white/10 p-2 text-white hover:bg-white/20" aria-label="Close image preview">
+            <X size={24} />
+          </button>
+          <img src={zoomedImage} alt="Product preview" className="max-h-[90vh] max-w-[90vw] object-contain" onClick={(event) => event.stopPropagation()} />
+        </div>
+      )}
     </div>
   );
 }
@@ -1152,7 +1264,6 @@ function blankProduct() {
     sku: "",
     category_id: "",
     status: "active",
-    image_urls: "",
   };
 }
 function toForm(product) {
@@ -1166,6 +1277,5 @@ function toForm(product) {
     sku: product.sku || "",
     category_id: product.category?.uid || "",
     status: product.status || "active",
-    image_urls: (product.images || []).map((image) => image.url).join("\n"),
   };
 }

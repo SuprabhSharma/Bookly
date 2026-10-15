@@ -7,6 +7,27 @@ export const updateVendorProfile = (payload) =>
   api.patch("/vendors/me/profile", payload).then((r) => r.data);
 export const getVendorProducts = (params) =>
   api.get("/products/vendor/me", { params }).then((r) => r.data);
+export const getAllVendorProducts = async () => {
+  const firstPage = await getVendorProducts({ page: 1, page_size: 100 });
+  const pages = await Promise.all(
+    Array.from({ length: Math.max(0, firstPage.pages - 1) }, (_, index) =>
+      getVendorProducts({ page: index + 2, page_size: 100 }),
+    ),
+  );
+  return {
+    ...firstPage,
+    items: [firstPage, ...pages].flatMap((page) => page.items),
+  };
+};
+export const uploadVendorProductImages = (files) => {
+  const formData = new FormData();
+  files.forEach((file) => formData.append("files", file));
+  return api
+    .post("/products/vendor/me/images", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    })
+    .then((r) => r.data);
+};
 export const createVendorProduct = (payload) =>
   api.post("/products/vendor/me", payload).then((r) => r.data);
 export const updateVendorProduct = (uid, payload) =>
@@ -15,6 +36,18 @@ export const deleteVendorProduct = (uid) =>
   api.delete(`/products/vendor/me/${uid}`).then((r) => r.data);
 export const getVendorServices = (params) =>
   api.get("/services/vendor/me", { params }).then((r) => r.data);
+export const getAllVendorServices = async () => {
+  const firstPage = await getVendorServices({ page: 1, page_size: 100 });
+  const pages = await Promise.all(
+    Array.from({ length: Math.max(0, firstPage.pages - 1) }, (_, index) =>
+      getVendorServices({ page: index + 2, page_size: 100 }),
+    ),
+  );
+  return {
+    ...firstPage,
+    items: [firstPage, ...pages].flatMap((page) => page.items),
+  };
+};
 export const createVendorService = (payload) =>
   api.post("/services/vendor/me", payload).then((r) => r.data);
 export const updateVendorService = (uid, payload) =>

@@ -11,6 +11,10 @@ export default defineConfig({
         target: process.env.VITE_PROXY_TARGET || 'http://127.0.0.1:8000',
         changeOrigin: true,
       },
+      '/media': {
+        target: process.env.VITE_PROXY_TARGET || 'http://127.0.0.1:8000',
+        changeOrigin: true,
+      },
     },
   },
   build: { rollupOptions: { output: { manualChunks: { react: ['react', 'react-dom'], router: ['react-router-dom'], query: ['@tanstack/react-query'] } } } },

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Link,
   useNavigate,
@@ -43,6 +44,7 @@ export function AuthLayout({ children }) {
 export function Login() {
   const [search] = useSearchParams();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const setSession = useAuthStore((state) => state.setSession);
   const {
     register,
@@ -54,6 +56,7 @@ export function Login() {
     try {
       setError("");
       const session = await login(data);
+      queryClient.clear();
       setSession(session);
       const next = search.get("next");
       navigate(

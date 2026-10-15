@@ -131,6 +131,8 @@ class ProductService:
         payload = data.model_dump(exclude_none=True, exclude={"image_urls"})
         for k, v in payload.items():
             setattr(product, k, v)
+        if data.stock is not None:
+            product.stock = data.stock
         if data.image_urls is not None:
             await self._attach_images(product, data.image_urls, session)
         await session.commit()

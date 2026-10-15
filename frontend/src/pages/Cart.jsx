@@ -6,11 +6,9 @@ import { getCart, removeCartItem, updateCartItem } from "../api/shop";
 import { Button, EmptyState, ErrorState, Skeleton } from "../components/ui";
 import { formatCurrency, productImage } from "../lib/formatters";
 import { useAuthStore } from "../store/authStore";
-import { useCartStore } from "../store/cartStore";
 
 export default function Cart() {
   const loggedIn = Boolean(useAuthStore((state) => state.accessToken));
-  const guestItems = useCartStore((state) => state.items);
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const query = useQuery({
@@ -26,23 +24,10 @@ export default function Cart() {
     mutationFn: ({ uid, quantity }) => updateCartItem(uid, quantity),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["cart"] }),
   });
-  const guestRemove = useCartStore((state) => state.remove);
-  const data = loggedIn
-    ? query.data?.items || []
-    : guestItems.map((item) => ({
-        uid: item.product.uid,
-        product_id: item.product.uid,
-        quantity: item.quantity,
-        unit_price: item.product.price,
-        line_total: Number(item.product.price) * item.quantity,
-        product_title: item.product.title,
-        product: item.product,
-      }));
-  const subtotal = loggedIn
-    ? query.data?.subtotal || 0
-    : data.reduce((sum, item) => sum + Number(item.line_total), 0);
-  if (loggedIn && query.isLoading) return <CartSkeleton />;
-  if (loggedIn && query.isError)
+  const data = query.data?.items || [];
+  const subtotal = query.data?.subtotal || 0;
+  if (query.isLoading) return <CartSkeleton />;
+  if (query.isError)
     return (
       <div className="mx-auto max-w-7xl px-4 py-10">
         <ErrorState onRetry={query.refetch} />
@@ -94,12 +79,10 @@ export default function Cart() {
                         aria-label="Decrease"
                         disabled={item.quantity <= 1}
                         onClick={() =>
-                          loggedIn
-                            ? update.mutate({
-                                uid: item.uid,
-                                quantity: item.quantity - 1,
-                              })
-                            : useCartStore.getState().add(item.product, -1)
+                          update.mutate({
+                            uid: item.uid,
+                            quantity: item.quantity - 1,
+                          })
                         }
                         className="grid h-9 w-8 place-items-center disabled:opacity-40"
                       >
@@ -111,12 +94,10 @@ export default function Cart() {
                       <button
                         aria-label="Increase"
                         onClick={() =>
-                          loggedIn
-                            ? update.mutate({
-                                uid: item.uid,
-                                quantity: item.quantity + 1,
-                              })
-                            : useCartStore.getState().add(item.product, 1)
+                          update.mutate({
+                            uid: item.uid,
+                            quantity: item.quantity + 1,
+                          })
                         }
                         className="grid h-9 w-8 place-items-center"
                       >
@@ -125,11 +106,7 @@ export default function Cart() {
                     </div>
                     <button
                       aria-label={`Remove ${item.product_title}`}
-                      onClick={() =>
-                        loggedIn
-                          ? remove.mutate(item.uid)
-                          : guestRemove(item.product_id)
-                      }
+                      onClick={() => remove.mutate(item.uid)}
                       className="grid h-9 w-9 place-items-center rounded-lg text-muted hover:bg-red-50 hover:text-red-600"
                     >
                       <Trash2 size={16} />

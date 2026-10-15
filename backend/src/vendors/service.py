@@ -46,6 +46,5 @@ class VendorService:
         user = user_result.first()
         if user:
             user.role = "vendor" if status == "approved" else "customer"
-        await session.commit()
-        await session.refresh(vendor)
+        await session.flush()
         return vendor

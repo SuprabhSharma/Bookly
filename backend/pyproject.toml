@@ -19,6 +19,7 @@ dependencies = [
     "sqlalchemy[asyncio]",
     "sqlmodel",
     "alembic>=1.20.0",
+    "Pillow",
 ]
 
 [tool.uv]

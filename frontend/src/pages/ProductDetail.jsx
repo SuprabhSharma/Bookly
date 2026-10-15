@@ -1,9 +1,24 @@
 import { useState } from "react";
-import { Heart, Minus, Plus, ShoppingBag, Store } from "lucide-react";
+import {
+  Check,
+  Heart,
+  MapPin,
+  ShoppingBag,
+  Store,
+  Zap,
+} from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { getProduct, listProducts, listReviews } from "../api/catalog";
-import { addCartItem, addWishlist } from "../api/shop";
+import {
+  addCartItem,
+  addWishlist,
+  getCart,
+  getAddresses,
+  getWishlist,
+  removeCartItem,
+  removeWishlist,
+} from "../api/shop";
 import { BackLink } from "../components/Page";
 import ProductCard from "../components/ProductCard";
 import { Badge, Button, ErrorState, Rating, Skeleton } from "../components/ui";
@@ -13,15 +28,34 @@ import {
   productImage,
 } from "../lib/formatters";
 import { useAuthStore } from "../store/authStore";
-import { useCartStore } from "../store/cartStore";
+import { getErrorMessage } from "../lib/errors";
 
 export default function ProductDetail() {
   const { slug } = useParams();
+  const navigate = useNavigate();
   const [selectedImage, setSelectedImage] = useState(0);
-  const [quantity, setQuantity] = useState(1);
+  const [cartAdded, setCartAdded] = useState(false);
+  const [cartError, setCartError] = useState("");
+  const [wishlistMessage, setWishlistMessage] = useState("");
+  const isLoggedIn = Boolean(useAuthStore((state) => state.accessToken));
   const productQuery = useQuery({
     queryKey: ["product", slug],
     queryFn: () => getProduct(slug),
+  });
+  const wishlistQuery = useQuery({
+    queryKey: ["wishlist"],
+    queryFn: getWishlist,
+    enabled: isLoggedIn,
+  });
+  const addresses = useQuery({
+    queryKey: ["addresses"],
+    queryFn: getAddresses,
+    enabled: isLoggedIn,
+  });
+  const cartQuery = useQuery({
+    queryKey: ["cart"],
+    queryFn: getCart,
+    enabled: isLoggedIn,
   });
   const reviews = useQuery({
     queryKey: ["reviews", slug],
@@ -37,16 +71,55 @@ export default function ProductDetail() {
       listProducts({ vendor: productQuery.data.vendor.slug, page_size: 4 }),
     enabled: Boolean(productQuery.data?.vendor?.slug),
   });
-  const isLoggedIn = Boolean(useAuthStore((state) => state.accessToken));
-  const addGuest = useCartStore((state) => state.add);
   const queryClient = useQueryClient();
   const cart = useMutation({
-    mutationFn: () => addCartItem(productQuery.data.uid, quantity),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["cart"] }),
+    mutationFn: () => addCartItem(productQuery.data.uid),
+    onSuccess: () => {
+      setCartError("");
+      setCartAdded(true);
+      queryClient.invalidateQueries({ queryKey: ["cart"] });
+    },
+    onError: (error) => {
+      setCartAdded(false);
+      setCartError(getErrorMessage(error));
+    },
+  });
+  const removeCart = useMutation({
+    mutationFn: () => {
+      const item = cartQuery.data?.items?.find(
+        (cartItem) => cartItem.product_id === productQuery.data.uid,
+      );
+      return item ? removeCartItem(item.uid) : Promise.resolve();
+    },
+    onSuccess: () => {
+      setCartAdded(false);
+      setCartError("");
+      queryClient.invalidateQueries({ queryKey: ["cart"] });
+    },
+    onError: (error) => setCartError(getErrorMessage(error)),
+  });
+  const buyNow = useMutation({
+    mutationFn: () => addCartItem(productQuery.data.uid),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["cart"] });
+      navigate(isLoggedIn ? "/checkout" : "/account?next=/checkout");
+    },
+    onError: (error) => setCartError(getErrorMessage(error)),
   });
   const wishlist = useMutation({
-    mutationFn: () => addWishlist(productQuery.data.uid),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["wishlist"] }),
+    mutationFn: (saved) =>
+      saved
+        ? removeWishlist(productQuery.data.uid)
+        : addWishlist(productQuery.data.uid),
+    onSuccess: (_, wasSaved) => {
+      queryClient.invalidateQueries({ queryKey: ["wishlist"] });
+      setWishlistMessage(
+        wasSaved
+          ? "Product removed from wishlist"
+          : "Product added to wishlist",
+      );
+    },
+    onError: (error) => setWishlistMessage(getErrorMessage(error)),
   });
   if (productQuery.isLoading)
     return (
@@ -68,8 +141,46 @@ export default function ProductDetail() {
       </div>
     );
   const product = productQuery.data;
+  const inCart =
+    cartAdded ||
+    Boolean(
+      cartQuery.data?.items?.some((item) => item.product_id === product.uid),
+    );
+  const saved = Boolean(
+    wishlistQuery.data?.items?.some((item) => item.product_id === product.uid),
+  );
+  const toggleWishlist = () => {
+    if (!isLoggedIn) {
+      navigate(`/account?next=${encodeURIComponent(`/p/${slug}`)}`);
+      return;
+    }
+    setWishlistMessage("");
+    wishlist.mutate(saved);
+  };
   const images = product.images?.length ? product.images : [{}];
-  const add = () => (isLoggedIn ? cart.mutate() : addGuest(product, quantity));
+  const add = () => {
+    setCartError("");
+    if (!isLoggedIn) {
+      navigate(`/account?next=${encodeURIComponent(`/p/${slug}`)}`);
+      return;
+    }
+    if (inCart) {
+      removeCart.mutate();
+      return;
+    }
+    cart.mutate();
+  };
+  const buy = () => {
+    setCartError("");
+    if (!isLoggedIn) {
+      navigate("/account?next=/checkout");
+      return;
+    }
+    buyNow.mutate();
+  };
+  const defaultAddress =
+    addresses.data?.find((address) => address.is_default) ||
+    addresses.data?.[0];
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
       <BackLink />
@@ -111,13 +222,24 @@ export default function ProductDetail() {
               </h1>
             </div>
             <button
-              aria-label="Add to wishlist"
-              onClick={() => isLoggedIn && wishlist.mutate()}
-              className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-line text-muted hover:bg-red-50 hover:text-red-500"
+              aria-label={saved ? "Remove from wishlist" : "Add to wishlist"}
+              title={saved ? "Remove from wishlist" : "Add to wishlist"}
+              onClick={toggleWishlist}
+              disabled={wishlist.isPending}
+              className={`grid h-11 w-11 shrink-0 place-items-center rounded-full border transition ${
+                saved
+                  ? "border-red-200 bg-red-50 text-red-500"
+                  : "border-line text-muted hover:border-red-200 hover:bg-red-50 hover:text-red-500"
+              } disabled:opacity-40`}
             >
-              <Heart size={21} />
+              <Heart size={21} fill={saved ? "currentColor" : "none"} />
             </button>
           </div>
+          {wishlistMessage && (
+            <p className="mt-2 text-sm text-muted" role="status">
+              {wishlistMessage}
+            </p>
+          )}
           <div className="mt-4 flex items-center gap-3">
             <Rating value={product.rating_avg} count={product.rating_count} />
             {product.stock > 0 ? (
@@ -141,6 +263,28 @@ export default function ProductDetail() {
               </>
             )}
           </div>
+          <div className="mt-5 rounded-lg border border-line bg-slate-50 p-4">
+            <div className="flex items-center gap-2 text-sm font-semibold">
+              <MapPin size={17} className="text-brand-600" />
+              Delivery
+            </div>
+            {defaultAddress ? (
+              <p className="mt-2 text-sm text-muted">
+                Deliver to <strong className="text-ink">{defaultAddress.name}</strong>{" "}
+                · {defaultAddress.city}, {defaultAddress.pincode}
+              </p>
+            ) : (
+              <p className="mt-2 text-sm text-muted">
+                Sign in at checkout to add or select a delivery address.
+              </p>
+            )}
+            <Link
+              to={isLoggedIn ? "/checkout" : "/account?next=/checkout"}
+              className="mt-2 inline-block text-sm font-semibold text-brand-600"
+            >
+              {defaultAddress ? "Change address" : "Add delivery address"}
+            </Link>
+          </div>
           <div className="my-7 h-px bg-line" />
           <p className="whitespace-pre-line text-sm leading-7 text-muted">
             {product.description ||
@@ -159,37 +303,32 @@ export default function ProductDetail() {
             </div>
           )}
           <div className="mt-8 flex flex-wrap items-center gap-3">
-            <div className="flex h-11 items-center rounded-lg border border-line">
-              <button
-                aria-label="Decrease quantity"
-                disabled={quantity <= 1}
-                onClick={() => setQuantity((n) => n - 1)}
-                className="grid h-11 w-10 place-items-center disabled:opacity-40"
-              >
-                <Minus size={15} />
-              </button>
-              <span className="w-8 text-center text-sm font-semibold">
-                {quantity}
-              </span>
-              <button
-                aria-label="Increase quantity"
-                disabled={quantity >= Math.min(product.stock, 10)}
-                onClick={() => setQuantity((n) => n + 1)}
-                className="grid h-11 w-10 place-items-center disabled:opacity-40"
-              >
-                <Plus size={15} />
-              </button>
-            </div>
             <Button
-              className="flex-1 sm:flex-none"
-              disabled={!product.stock || cart.isPending}
-              loading={cart.isPending}
+              className="flex-1 bg-amber-500 hover:bg-amber-600 sm:flex-none"
+              disabled={
+                (!product.stock && !inCart) ||
+                cart.isPending ||
+                removeCart.isPending
+              }
+              loading={cart.isPending || removeCart.isPending}
               onClick={add}
             >
-              <ShoppingBag size={17} />
-              Add to cart
+              {inCart ? <Check size={17} /> : <ShoppingBag size={17} />}
+              {inCart ? "Remove from cart" : "Add to cart"}
+            </Button>
+            <Button
+              className="flex-1 sm:flex-none"
+              disabled={!product.stock || buyNow.isPending}
+              loading={buyNow.isPending}
+              onClick={buy}
+            >
+              <Zap size={17} />
+              Buy now
             </Button>
           </div>
+          {cartError && (
+            <p className="mt-3 text-sm text-red-600">{cartError}</p>
+          )}
           <Link
             to={`/store/${product.vendor?.slug}`}
             className="mt-7 flex items-center gap-3 rounded-card border border-line p-4 hover:border-brand-100"
