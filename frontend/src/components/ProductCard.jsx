@@ -1,4 +1,5 @@
 import { useState } from "react";
+import ProductPrice from "./ProductPrice";
 import { Check, Heart, ShoppingBag } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -10,16 +11,12 @@ import {
   removeCartItem,
   removeWishlist,
 } from "../api/shop";
-import {
-  formatCurrency,
-  discountPercent,
-  productImage,
-} from "../lib/formatters";
+import { productImage } from "../lib/formatters";
 import { useAuthStore } from "../store/authStore";
 import { getErrorMessage } from "../lib/errors";
-import { Button, Rating } from "./ui";
+import { Rating } from "./ui";
 
-export default function ProductCard({ product, showCart = true }) {
+export default function ProductCard({ product }) {
   const isLoggedIn = Boolean(useAuthStore((state) => state.accessToken));
   const navigate = useNavigate();
   const location = useLocation();
@@ -101,8 +98,6 @@ export default function ProductCard({ product, showCart = true }) {
     cartMutation.mutate();
   };
 
-  const discount = discountPercent(product.price, product.mrp);
-
   return (
     <article className="group flex min-w-0 flex-col overflow-hidden rounded-card border border-line bg-white p-2.5 shadow-card transition hover:-translate-y-0.5 hover:shadow-float sm:p-3">
       <Link
@@ -137,58 +132,45 @@ export default function ProductCard({ product, showCart = true }) {
         <div className="mt-1">
           <Rating value={product.rating_avg} count={product.rating_count} compact />
         </div>
-        <div className="flex items-end justify-between gap-2 pt-1">
-          <div className="min-w-0">
-            <p className="truncate font-bold text-ink">
-              {formatCurrency(product.price)}
-            </p>
-            {discount > 0 && (
-              <p className="truncate text-xs text-muted">
-                <span className="line-through">
-                  {formatCurrency(product.mrp)}
-                </span>{" "}
-                <span className="font-semibold text-emerald-600">
-                  {discount}% off
-                </span>
-              </p>
-            )}
-          </div>
-          <div className="flex shrink-0 items-center gap-1">
-            {showCart && (
-              <Button
-                aria-label={inCart ? "Remove from cart" : "Add to cart"}
-                title={inCart ? "Remove from cart" : "Add to cart"}
-                className={`h-9 min-h-9 w-9 px-0 ${
-                  inCart
-                    ? "bg-emerald-600 text-white shadow-[0_0_0_3px_rgba(16,185,129,0.18)] hover:bg-emerald-700"
-                    : ""
-                }`}
-                onClick={addToCart}
-                disabled={
-                  (!product.stock && !inCart) ||
-                  cartMutation.isPending ||
-                  removeCartMutation.isPending
-                }
-              >
-                {inCart ? (
-                  <Check size={20} strokeWidth={3} />
-                ) : (
-                  <ShoppingBag size={16} />
-                )}
-              </Button>
-            )}
+        <div className="pt-1">
+          <ProductPrice price={product.price} mrp={product.mrp} />
+          <div className="mt-3 flex items-center gap-2">
+            <button
+              type="button"
+              aria-label={inCart ? "Remove from cart" : "Add to cart"}
+              aria-pressed={inCart}
+              title={inCart ? "Remove from cart" : "Add to cart"}
+              onClick={addToCart}
+              disabled={
+                (!product.stock && !inCart) ||
+                cartMutation.isPending ||
+                removeCartMutation.isPending
+              }
+              className={`inline-flex min-h-10 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-lg border px-3 text-xs font-semibold transition focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 ${
+                inCart
+                  ? "border-emerald-600 bg-emerald-600 text-white shadow-[0_0_0_3px_rgba(16,185,129,0.16)] hover:border-emerald-700 hover:bg-emerald-700"
+                  : "border-brand-200 bg-brand-50 text-brand-700 hover:border-brand-300 hover:bg-brand-100"
+              }`}
+            >
+              {inCart ? (
+                <Check size={18} strokeWidth={3} />
+              ) : (
+                <ShoppingBag size={18} strokeWidth={2.25} />
+              )}
+              <span>{inCart ? "In cart" : "Add to cart"}</span>
+            </button>
             <button
               aria-label={saved ? "Remove from wishlist" : "Add to wishlist"}
               title={saved ? "Remove from wishlist" : "Add to wishlist"}
               onClick={toggleWishlist}
-              className={`grid h-9 w-9 shrink-0 place-items-center rounded-full border transition ${
+              className={`grid h-10 w-10 shrink-0 place-items-center rounded-full border transition ${
                 saved
                   ? "border-red-200 bg-red-50 text-red-500"
                   : "border-line text-muted hover:border-red-200 hover:bg-red-50 hover:text-red-500"
               } disabled:opacity-40`}
               disabled={wishlistMutation.isPending}
             >
-              <Heart size={17} fill={saved ? "currentColor" : "none"} />
+              <Heart size={19} fill={saved ? "currentColor" : "none"} />
             </button>
           </div>
         </div>

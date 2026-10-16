@@ -15,7 +15,6 @@ export default function ProductListing() {
   const q = params.get("q") || "";
   const sort = params.get("sort") || "newest";
   const inStock = params.get("in_stock") === "true";
-  const isAllProducts = !params.get("sort") && !category && !q && !inStock;
   const queryParams = useMemo(
     () => ({
       page,
@@ -40,7 +39,9 @@ export default function ProductListing() {
     const next = new URLSearchParams(params);
     if (value) next.set(key, value);
     else next.delete(key);
-    next.set("page", "1");
+    // Filter changes should start at the first page, but pagination controls
+    // must preserve the page they are navigating to.
+    if (key !== "page") next.set("page", "1");
     setParams(next);
   };
   return (
@@ -118,7 +119,6 @@ export default function ProductListing() {
               <ProductCard
                 key={product.uid}
                 product={product}
-                showCart={!isAllProducts}
               />
             ))}
           </div>

@@ -21,12 +21,9 @@ import {
 } from "../api/shop";
 import { BackLink } from "../components/Page";
 import ProductCard from "../components/ProductCard";
+import ProductPrice from "../components/ProductPrice";
 import { Badge, Button, ErrorState, Rating, Skeleton } from "../components/ui";
-import {
-  discountPercent,
-  formatCurrency,
-  productImage,
-} from "../lib/formatters";
+import { productImage } from "../lib/formatters";
 import { useAuthStore } from "../store/authStore";
 import { getErrorMessage } from "../lib/errors";
 
@@ -36,6 +33,7 @@ export default function ProductDetail() {
   const [selectedImage, setSelectedImage] = useState(0);
   const [cartAdded, setCartAdded] = useState(false);
   const [cartError, setCartError] = useState("");
+  const [cartMessage, setCartMessage] = useState("");
   const [wishlistMessage, setWishlistMessage] = useState("");
   const isLoggedIn = Boolean(useAuthStore((state) => state.accessToken));
   const productQuery = useQuery({
@@ -76,6 +74,7 @@ export default function ProductDetail() {
     mutationFn: () => addCartItem(productQuery.data.uid),
     onSuccess: () => {
       setCartError("");
+      setCartMessage("Product added to cart");
       setCartAdded(true);
       queryClient.invalidateQueries({ queryKey: ["cart"] });
     },
@@ -93,6 +92,7 @@ export default function ProductDetail() {
     },
     onSuccess: () => {
       setCartAdded(false);
+      setCartMessage("Product removed from cart");
       setCartError("");
       queryClient.invalidateQueries({ queryKey: ["cart"] });
     },
@@ -160,6 +160,7 @@ export default function ProductDetail() {
   const images = product.images?.length ? product.images : [{}];
   const add = () => {
     setCartError("");
+    setCartMessage("");
     if (!isLoggedIn) {
       navigate(`/account?next=${encodeURIComponent(`/p/${slug}`)}`);
       return;
@@ -172,6 +173,7 @@ export default function ProductDetail() {
   };
   const buy = () => {
     setCartError("");
+    setCartMessage("");
     if (!isLoggedIn) {
       navigate("/account?next=/checkout");
       return;
@@ -248,21 +250,12 @@ export default function ProductDetail() {
               <Badge tone="danger">Out of stock</Badge>
             )}
           </div>
-          <div className="mt-6 flex items-baseline gap-3">
-            <span className="text-3xl font-bold">
-              {formatCurrency(product.price)}
-            </span>
-            {product.mrp && Number(product.mrp) > Number(product.price) && (
-              <>
-                <span className="text-sm text-muted line-through">
-                  {formatCurrency(product.mrp)}
-                </span>
-                <span className="text-sm font-semibold text-emerald-600">
-                  {discountPercent(product.price, product.mrp)}% off
-                </span>
-              </>
-            )}
-          </div>
+          <ProductPrice
+            price={product.price}
+            mrp={product.mrp}
+            inline
+            className="mt-6"
+          />
           <div className="mt-5 rounded-lg border border-line bg-slate-50 p-4">
             <div className="flex items-center gap-2 text-sm font-semibold">
               <MapPin size={17} className="text-brand-600" />
@@ -304,7 +297,7 @@ export default function ProductDetail() {
           )}
           <div className="mt-8 flex flex-wrap items-center gap-3">
             <Button
-              className="flex-1 bg-amber-500 hover:bg-amber-600 sm:flex-none"
+              className={`flex-1 sm:flex-none ${inCart ? "bg-emerald-600 hover:bg-emerald-700" : "bg-brand-600 hover:bg-brand-700"}`}
               disabled={
                 (!product.stock && !inCart) ||
                 cart.isPending ||
@@ -313,8 +306,8 @@ export default function ProductDetail() {
               loading={cart.isPending || removeCart.isPending}
               onClick={add}
             >
-              {inCart ? <Check size={17} /> : <ShoppingBag size={17} />}
-              {inCart ? "Remove from cart" : "Add to cart"}
+              {inCart ? <Check size={19} strokeWidth={3} /> : <ShoppingBag size={19} strokeWidth={2.25} />}
+              {inCart ? "In cart" : "Add to cart"}
             </Button>
             <Button
               className="flex-1 sm:flex-none"
@@ -326,6 +319,11 @@ export default function ProductDetail() {
               Buy now
             </Button>
           </div>
+          {cartMessage && (
+            <p className="mt-3 text-sm font-semibold text-emerald-700" role="status">
+              {cartMessage}
+            </p>
+          )}
           {cartError && (
             <p className="mt-3 text-sm text-red-600">{cartError}</p>
           )}

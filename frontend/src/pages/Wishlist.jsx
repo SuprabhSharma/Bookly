@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { addCartItem, getWishlist, removeWishlist } from "../api/shop";
 import { Button, EmptyState, ErrorState, Skeleton } from "../components/ui";
+import ProductPrice from "../components/ProductPrice";
 import { productImage } from "../lib/formatters";
 
 export default function Wishlist() {
@@ -65,9 +66,11 @@ export default function Wishlist() {
                 <p className="truncate text-sm font-semibold hover:text-brand-600">
                   {item.product_title}
                 </p>
-                <p className="mt-1 text-sm font-semibold">
-                  ₹{Number(item.product?.price || 0).toLocaleString("en-IN")}
-                </p>
+                <ProductPrice
+                  price={item.product?.price}
+                  mrp={item.product?.mrp}
+                  className="mt-1 text-sm"
+                />
                 <p className="mt-1 text-xs text-muted">
                   Saved on{" "}
                   {new Date(item.created_at).toLocaleDateString("en-IN")}

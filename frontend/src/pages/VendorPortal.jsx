@@ -36,6 +36,7 @@ import {
   uploadVendorProductImages,
 } from "../api/vendor";
 import { BackLink, PageHeader } from "../components/Page";
+import ProductPrice from "../components/ProductPrice";
 import {
   Badge,
   Button,
@@ -436,10 +437,14 @@ function ApprovedOverview({ vendor }) {
                         <p className="truncate text-sm font-semibold">
                           {product.title}
                         </p>
-                        <p className="mt-1 text-xs text-muted">
+                        <div className="mt-1 flex flex-wrap items-center gap-1 text-xs text-muted">
                           {product.stock} units Â·{" "}
-                          {formatCurrency(product.price)}
-                        </p>
+                          <ProductPrice
+                            price={product.price}
+                            mrp={product.mrp}
+                            className="inline-flex"
+                          />
+                        </div>
                       </div>
                       <Badge
                         tone={
@@ -592,7 +597,11 @@ function VendorProducts({ profile }) {
                   {product.sku || product.slug}
                 </p>
               </div>
-              <p className="text-sm">{formatCurrency(product.price)}</p>
+              <ProductPrice
+                price={product.price}
+                mrp={product.mrp}
+                className="text-sm"
+              />
               <p
                 className={`text-sm ${product.stock <= LOW_STOCK_THRESHOLD ? "font-semibold text-amber-700" : ""}`}
               >
@@ -964,6 +973,15 @@ function ProductEditor({ product, categories, onClose, onSaved }) {
     setError("");
     if (!form.title.trim() || !form.slug.trim() || !form.price)
       return setError("Title, slug and price are required.");
+    const sellingPrice = Number(form.price);
+    const maximumRetailPrice = form.mrp === "" ? null : Number(form.mrp);
+    if (!Number.isFinite(sellingPrice) || sellingPrice <= 0)
+      return setError("Selling price must be greater than zero.");
+    if (
+      maximumRetailPrice !== null &&
+      (!Number.isFinite(maximumRetailPrice) || maximumRetailPrice < sellingPrice)
+    )
+      return setError("MRP must be greater than or equal to the selling price.");
     mutation.mutate({
       ...form,
       price: Number(form.price),
@@ -1018,7 +1036,7 @@ function ProductEditor({ product, categories, onClose, onSaved }) {
           <Input
             label="Selling price"
             type="number"
-            min="0"
+            min="0.01"
             step="0.01"
             value={form.price}
             onChange={(e) => update("price", e.target.value)}
@@ -1031,6 +1049,23 @@ function ProductEditor({ product, categories, onClose, onSaved }) {
             value={form.mrp}
             onChange={(e) => update("mrp", e.target.value)}
           />
+          {form.price && (
+            <div className="rounded-lg border border-brand-100 bg-brand-50 p-3 sm:col-span-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">
+                Customer price preview
+              </p>
+              <ProductPrice
+                price={form.price}
+                mrp={form.mrp}
+                className="mt-1"
+              />
+              {form.mrp && Number(form.mrp) < Number(form.price) && (
+                <p className="mt-1 text-xs font-semibold text-red-600">
+                  MRP must be greater than or equal to the selling price.
+                </p>
+              )}
+            </div>
+          )}
           <Input
             label="Stock quantity"
             type="number"

@@ -3,6 +3,7 @@ import uuid
 from decimal import Decimal
 from typing import List, Optional
 
+from fastapi import HTTPException
 from sqlalchemy import func, select as sa_select
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -128,6 +129,15 @@ class ProductService:
         return product
 
     async def update(self, product: Product, data: ProductUpdate, session: AsyncSession) -> Product:
+        next_price = data.price if data.price is not None else product.price
+        next_mrp = data.mrp if 'mrp' in data.model_fields_set else product.mrp
+        if next_mrp is not None and next_mrp < next_price:
+            raise HTTPException(
+                status_code=422,
+                detail='MRP must be greater than or equal to the selling price',
+            )
+        if data.mrp is None and 'mrp' in data.model_fields_set:
+            product.mrp = None
         payload = data.model_dump(exclude_none=True, exclude={"image_urls"})
         for k, v in payload.items():
             setattr(product, k, v)

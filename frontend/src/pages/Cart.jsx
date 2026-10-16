@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Minus, Plus, ShoppingBag, Trash2 } from "lucide-react";
 import { getCart, removeCartItem, updateCartItem } from "../api/shop";
+import ProductPrice from "../components/ProductPrice";
 import { Button, EmptyState, ErrorState, Skeleton } from "../components/ui";
 import { formatCurrency, productImage } from "../lib/formatters";
 import { useAuthStore } from "../store/authStore";
@@ -70,9 +71,11 @@ export default function Cart() {
                   <p className="line-clamp-2 text-sm font-semibold">
                     {item.product_title}
                   </p>
-                  <p className="mt-1 text-sm font-bold">
-                    {formatCurrency(item.unit_price)}
-                  </p>
+                  <ProductPrice
+                    price={item.unit_price}
+                    mrp={item.product?.mrp}
+                    className="mt-1 text-sm"
+                  />
                   <div className="mt-4 flex items-center justify-between">
                     <div className="flex h-9 items-center rounded-lg border border-line">
                       <button
